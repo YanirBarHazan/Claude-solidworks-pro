@@ -38,6 +38,10 @@ process drives the page over COM (all DOM access on its main thread). One persis
 (stream-json, `--resume` = one conversation until "new chat"), started with: no MCP servers, only the built-in
 tools Bash/Read/Write/Edit/Glob/Grep (fixed context 39.5k -> 9.6k tokens per round), PowerShell tool disabled
 (~7 s per call), effort medium, the system prompt `swpanel/PANEL_PROMPT.md`.
+Look (2026-11-19): dark engineering theme (IE11-safe CSS, no variables), telemetry strip (SEL / DIR), numbers with
+units highlighted, insight cards from tagged lines (`[למה]` `[ייצור]` `[ייעול]` `[שים לב]` `[הנחה]`, rendered by
+`Panel.rich`), quick-prompt chips (manufacturing check, optimisation, explain the model). The prompt makes Claude
+a manufacturing engineer: result first, then measured, model-specific insights (`references/manufacturing.md`).
 Features: bubbles with time, live step line, Stop, New chat, save folder, file attachments, Approve / Reject cards
 (`[[APPROVE]]` - required for rebuild from scratch, delete, overwrite), history restored when the tab reopens.
 Files: `~/.solidworks-api/swpanel/` - settings.json, chat.log.jsonl, tokens.csv (per request, from Claude Code's

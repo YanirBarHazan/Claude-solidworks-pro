@@ -2,6 +2,7 @@
 
 Every release, newest first. Each page keeps the full notes, numbers and links.
 
+- [What's new (2026-11-20): the Claude tab as a manufacturing engineer](2026-11-20-engineer-panel.md)
 - [What's new (2026-11-19): a day log - see what Claude did in SolidWorks today](2026-11-19-daylog.md)
 - [What's new (2026-11-18, v2.2): Claude inside SolidWorks, 5-100x faster API calls, design for change](2026-11-18-v2.2.md)
 - [What's new (2026-11-18): drawings, a light start check, and a review report](2026-11-18-drawings.md)

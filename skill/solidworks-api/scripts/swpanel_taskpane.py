@@ -257,20 +257,42 @@ class Bridge:
         chat.insertAdjacentHTML("beforeEnd", html_)
         chat.scrollTop = chat.scrollHeight
 
-    @staticmethod
-    def rich(text):
-        """Escape, then the little markdown Claude uses in short replies: **bold**."""
+    # engineering insight lines Claude starts with a tag (PANEL_PROMPT.md) -> coloured cards in panel.html
+    INSIGHTS = {"ייצור": "mfg", "ייעול": "opt", "למה": "why", "שים לב": "warn", "הנחה": "asm"}
+    UNITS = r"(?:mm³|mm²|mm|מ&quot;מ|ס&quot;מ|cm|m|kg|ק&quot;ג|gr|g|גרם|°|N·m|Nm|N|MPa|GPa|%|₪|\$|s|שנ'|min|דק')"
+
+    @classmethod
+    def rich(cls, text):
+        """Escape, then the little markup the panel prompt allows: **bold**, numbers with units highlighted,
+        '- ' bullets, and insight lines '[ייצור] ...' / '[ייעול] ...' / '[למה] ...' / '[שים לב] ...' / '[הנחה] ...'."""
         import re
-        return re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", esc(text))
+        num = re.compile(r"(?<![\w&#.,])((?:Ø|R|M(?=\d))?\d+(?:[.,]\d+)?(?:\s?[x×]\s?\d+(?:[.,]\d+)?)*\s?" + cls.UNITS + r")(?![\w])")
+        tag = re.compile(r"^\s*\[(" + "|".join(cls.INSIGHTS) + r")\]\s*(.*)$")
+        out = []
+        for line in (text or "").strip("\n").split("\n"):
+            h = esc(line)
+            h = num.sub(lambda m: '<span class="num%s">%s</span>' % (                   # Hebrew unit: keep RTL order
+                " he" if re.search("[\u0590-\u05ff]", m.group(1)) else "", m.group(1)), h)
+            h = re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", h)
+            m = tag.match(h)
+            if m:
+                out.append(f'<div class="ins {cls.INSIGHTS[m.group(1)]}"><span class="tag">{m.group(1)}</span>'
+                           f'{m.group(2)}</div>')
+            elif re.match(r"^\s*[-•]\s+", h):
+                out.append('<div class="li">' + re.sub(r"^\s*[-•]\s+", "", h) + "</div>")
+            else:
+                out.append(f"<div>{h or '&nbsp;'}</div>")
+        return "".join(out)
 
     def bubble(self, text, who="ai", t=None, card=""):
         """LEO-style message: avatar, name + time, soft bubble; `card` = buttons inside the bubble."""
         who_cls = who.split()[0]
         err = " err" if "err" in who else ""
         name, av = ("Claude", "C") if who_cls == "ai" else ("אתה", "א")
+        role = '<span class="role">ENG</span>' if who_cls == "ai" else ""
         tm = t or time.strftime("%H:%M")
         self.add(f'<div class="row {who_cls}"><div class="av">{av}</div><div class="body">'
-                 f'<div class="who">{name}<span>{esc(tm)}</span></div>'
+                 f'<div class="who">{name}{role}<span class="tm">{esc(tm)}</span></div>'
                  f'<div class="msg{err}">{self.rich(text)}{card}</div></div></div>')
 
     def card(self, buttons):

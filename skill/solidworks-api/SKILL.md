@@ -76,6 +76,7 @@ the warnings before answering a complaint; a warning that repeats is a fix to th
 | Materials, mass, weight / material properties for BOM and title block | `references/materials_properties.md` |
 | Production drawings, BOM, sections, tolerances, PDF / DXF | `references/drawings.md` (`scripts/drawings.py`: one call) |
 | 3D-printed parts, enclosures, snap fits, print files | `references/fdm_printing.md`, `references/engineering.md` |
+| Manufacturing method, DFM review, cost / part-count / setup optimisation | `references/manufacturing.md` |
 | A SolidWorks error or a version question | `references/version_notes.md` |
 | Reading listings, approval sketches, token habits | `references/tools_and_workflow.md` |
 | Quick look / value change in the open document (fast commands), or the Claude tab inside SolidWorks | `references/panel.md` |
