@@ -1,0 +1,273 @@
+' SolidWorks Claude panel - stage 0 spike launcher (SolidWorks 2019+, VBA7 64-bit).
+' Builds a modeless UserForm at runtime through the VBA editor object (no .swp needed),
+' polls status.json every 2 s with a Win32 timer bound to the form window, and reads / writes UTF-8 JSON.
+' Keep this file ASCII: Hebrew text is built with ChrW or read from UTF-8 files.
+' SWPANEL_LAUNCHER_MARKER
+Option Explicit
+
+Private Declare PtrSafe Function FindWindowW Lib "user32" (ByVal lpClassName As LongPtr, ByVal lpWindowName As LongPtr) As LongPtr
+Private Declare PtrSafe Sub Sleep Lib "kernel32" (ByVal dwMilliseconds As Long)
+
+Private Const FORM_CAPTION As String = "Claude - SolidWorks panel (spike)"
+Private Const TICK_MS As Long = 2000
+
+Public gForm As Object
+Private gHwnd As LongPtr
+Private gTicks As Long
+Private gStamp As Date
+Private gDir As String
+
+Function PanelDir() As String
+    If gDir = "" Then gDir = Environ("USERPROFILE") & "\.solidworks-api\swpanel\"
+    PanelDir = gDir
+End Function
+
+Sub Logx(s As String)
+    Dim f As Integer
+    On Error Resume Next
+    f = FreeFile
+    Open PanelDir() & "spike_log.txt" For Append As #f
+    Print #f, Format(Now, "yyyy-mm-dd hh:nn:ss") & " " & s
+    Close #f
+End Sub
+
+Function Heb(codes As String) As String
+    ' "5E9 5DC 5D7" -> Hebrew string (keeps this source ASCII)
+    Dim parts() As String, i As Long, r As String
+    parts = Split(codes, " ")
+    For i = 0 To UBound(parts)
+        If parts(i) = "_" Then r = r & " " Else r = r & ChrW(CLng("&H" & parts(i)))
+    Next
+    Heb = r
+End Function
+
+Function ReadUtf8(p As String) As String
+    Dim s As Object
+    Set s = CreateObject("ADODB.Stream")
+    s.Type = 2: s.Charset = "utf-8": s.Open
+    s.LoadFromFile p
+    ReadUtf8 = s.ReadText(-1)
+    s.Close
+End Function
+
+Sub WriteUtf8(p As String, txt As String)
+    ' UTF-8 without BOM, written to a temp file then renamed (readers never see half a file)
+    Dim s As Object, b As Object
+    Set s = CreateObject("ADODB.Stream")
+    s.Type = 2: s.Charset = "utf-8": s.Open
+    s.WriteText txt
+    s.Position = 3
+    Set b = CreateObject("ADODB.Stream")
+    b.Type = 1: b.Open
+    s.CopyTo b
+    b.SaveToFile p & ".tmp", 2
+    b.Close: s.Close
+    On Error Resume Next
+    Kill p
+    On Error GoTo 0
+    Name p & ".tmp" As p
+End Sub
+
+Function JsonEsc(s As String) As String
+    Dim i As Long, ch As String, code As Long, r As String
+    For i = 1 To Len(s)
+        ch = Mid$(s, i, 1)
+        code = AscW(ch) And &HFFFF&
+        Select Case code
+            Case 34: r = r & "\"""
+            Case 92: r = r & "\\"
+            Case 10: r = r & "\n"
+            Case 13: r = r & "\r"
+            Case 9: r = r & "\t"
+            Case Is < 32: r = r & "\u" & Right$("000" & Hex$(code), 4)
+            Case Else: r = r & ch
+        End Select
+    Next
+    JsonEsc = r
+End Function
+
+Function JsonStr(js As String, key As String) As String
+    ' value of a top-level string field (spike-grade; the real panel gets a full parser)
+    Dim k As Long, i As Long, ch As String, r As String
+    k = InStr(1, js, """" & key & """")
+    If k = 0 Then Exit Function
+    k = InStr(k + Len(key) + 2, js, ":")
+    k = InStr(k, js, """")
+    i = k + 1
+    Do While i <= Len(js)
+        ch = Mid$(js, i, 1)
+        If ch = """" Then Exit Do
+        If ch = "\" Then
+            i = i + 1
+            ch = Mid$(js, i, 1)
+            Select Case ch
+                Case "n": r = r & vbLf
+                Case "r": r = r & vbCr
+                Case "t": r = r & vbTab
+                Case "u": r = r & ChrW(CLng("&H" & Mid$(js, i + 1, 4))): i = i + 4
+                Case Else: r = r & ch
+            End Select
+        Else
+            r = r & ch
+        End If
+        i = i + 1
+    Loop
+    JsonStr = r
+End Function
+
+Function OwnProject() As Object
+    Dim p As Object, c As Object
+    For Each p In Application.VBE.VBProjects
+        For Each c In p.VBComponents
+            If c.Type = 1 Then
+                If c.CodeModule.CountOfLines > 0 Then
+                    If c.CodeModule.Find("SWPANEL_LAUNCHER_MARKER", 1, 1, -1, -1, False, False, False) Then
+                        Set OwnProject = p
+                        Exit Function
+                    End If
+                End If
+            End If
+        Next
+    Next
+End Function
+
+Function FormLoaded() As Boolean
+    Dim s As String
+    On Error GoTo nope
+    If gForm Is Nothing Then Exit Function
+    s = gForm.Caption
+    FormLoaded = True
+nope:
+End Function
+
+Sub AddCtl(frm As Object, progId As String, nm As String, l As Single, t As Single, w As Single, h As Single)
+    Dim c As Object
+    Set c = frm.Designer.Controls.Add(progId, nm)
+    c.Left = l: c.Top = t: c.Width = w: c.Height = h
+End Sub
+
+Sub main()
+    Dim t0 As Double
+    t0 = Timer
+    On Error GoTo fail
+    If FormLoaded() Then
+        gForm.Show 0
+        Logx "main: already open, brought to front"
+        Exit Sub
+    End If
+    Dim prj As Object, c As Object, i As Long
+    Set prj = OwnProject()
+    ' drop forms left by earlier launches (and by the stage-0 probes)
+    For i = prj.VBComponents.Count To 1 Step -1
+        Set c = prj.VBComponents(i)
+        If c.Type = 3 Then
+            If c.CodeModule.Find("SWPANEL_FORM_MARKER", 1, 1, -1, -1, False, False, False) Or _
+               c.CodeModule.Find("probe ok", 1, 1, -1, -1, False, False, False) Then prj.VBComponents.Remove c
+        End If
+    Next
+    Dim frm As Object
+    Set frm = prj.VBComponents.Add(3)
+    AddCtl frm, "Forms.Label.1", "lblReq", 6, 6, 276, 14
+    AddCtl frm, "Forms.TextBox.1", "txtReq", 6, 22, 276, 54
+    AddCtl frm, "Forms.CommandButton.1", "btnSend", 6, 80, 80, 22
+    AddCtl frm, "Forms.Label.1", "lblStatus", 6, 108, 276, 60
+    AddCtl frm, "Forms.Label.1", "lblTick", 6, 172, 276, 14
+    frm.CodeModule.AddFromString FormCode()
+    Set gForm = VBA.UserForms.Add(frm.Name)
+    gForm.Show 0
+    gHwnd = FindWindowW(StrPtr("ThunderDFrame"), StrPtr(FORM_CAPTION))
+    gTicks = 0
+    gStamp = 0
+    Logx "main: built " & frm.Name & " hwnd=" & CStr(gHwnd) & " in " & Format(Timer - t0, "0.000") & " s"
+    ' SolidWorks resets the macro project (and unloads its forms) when main returns, so main stays alive:
+    ' a light message loop that also does the 2 s status poll (no Win32 timer callback needed).
+    Dim last As Double, now_ As Double
+    last = Timer
+    Do While FormLoaded()
+        Sleep 50
+        DoEvents
+        now_ = Timer
+        If now_ < last Then last = now_ ' midnight wrap
+        If now_ - last >= TICK_MS / 1000 Then
+            last = now_
+            TickProc 0, 0, 0, 0
+        End If
+    Loop
+    Logx "main: loop ended, ticks=" & gTicks
+    Exit Sub
+fail:
+    Logx "main: ERROR " & Err.Number & " " & Err.Description
+End Sub
+
+Function FormCode() As String
+    Dim s As String
+    s = "' SWPANEL_FORM_MARKER" & vbCrLf
+    s = s & "Private Sub UserForm_Initialize()" & vbCrLf
+    s = s & "    SpikeInitForm Me" & vbCrLf
+    s = s & "End Sub" & vbCrLf
+    s = s & "Private Sub btnSend_Click()" & vbCrLf
+    s = s & "    SpikeSend Me.Controls(""txtReq"").Text" & vbCrLf
+    s = s & "End Sub" & vbCrLf
+    s = s & "Private Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)" & vbCrLf
+    s = s & "    SpikeStop" & vbCrLf
+    s = s & "End Sub" & vbCrLf
+    FormCode = s
+End Function
+
+Sub SpikeInitForm(f As Object)
+    Dim c As Object
+    f.Caption = FORM_CAPTION
+    f.Width = 296: f.Height = 214
+    On Error Resume Next
+    f.RightToLeft = True
+    Logx "init: form RightToLeft err=" & Err.Number
+    Err.Clear
+    For Each c In f.Controls
+        c.Font.Name = "Arial"
+        c.Font.Size = 10
+        c.Font.Charset = 177
+    Next
+    Logx "init: font charset err=" & Err.Number
+    Err.Clear
+    ' "request to Claude:"  /  "send"  /  "waiting for status"
+    f.Controls("lblReq").Caption = Heb("5D1 5E7 5E9 5D4 _ 5DC") & "-Claude:"
+    f.Controls("btnSend").Caption = Heb("5E9 5DC 5D7")
+    f.Controls("lblStatus").Caption = Heb("5DE 5DE 5EA 5D9 5DF _ 5DC 5E1 5D8 5D8 5D5 5E1") & "..."
+    f.Controls("txtReq").MultiLine = True
+    f.Controls("txtReq").TextAlign = 3
+    f.Controls("lblReq").TextAlign = 3
+    f.Controls("lblStatus").TextAlign = 3
+    Logx "init: captions err=" & Err.Number
+End Sub
+
+Sub SpikeSend(txt As String)
+    Dim js As String
+    js = "{""schema"": ""swpanel.request/0"", ""id"": """ & Format(Now, "yyyymmdd-hhnnss") & """, ""text"": """ & JsonEsc(txt) & """, ""len"": " & Len(txt) & "}"
+    WriteUtf8 PanelDir() & "request.json", js
+    gForm.Controls("lblStatus").Caption = Heb("5E0 5E9 5DC 5D7") & " (" & Len(txt) & ")"
+    Logx "send: " & Len(txt) & " chars"
+End Sub
+
+Sub SpikeStop()
+    Logx "stop: ticks=" & gTicks
+    gHwnd = 0
+    Set gForm = Nothing
+End Sub
+
+Sub TickProc(ByVal hWnd As LongPtr, ByVal uMsg As Long, ByVal idEvent As LongPtr, ByVal dwTime As Long)
+    On Error Resume Next
+    Dim p As String, st As Date, js As String, txt As String
+    gTicks = gTicks + 1
+    p = PanelDir() & "status.json"
+    st = 0
+    st = FileDateTime(p)
+    If st <> 0 And st <> gStamp Then
+        gStamp = st
+        js = ReadUtf8(p)
+        txt = JsonStr(js, "text")
+        gForm.Controls("lblStatus").Caption = txt
+    End If
+    gForm.Controls("lblTick").Caption = "tick " & gTicks
+    ' echo what the form shows, so the test can check the round trip without screenshots
+    WriteUtf8 PanelDir() & "seen.json", "{""ticks"": " & gTicks & ", ""shown"": """ & JsonEsc(gForm.Controls("lblStatus").Caption) & """}"
+End Sub

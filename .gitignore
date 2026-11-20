@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+parts/
+*.sldprt
+*.sldasm
+*.slddrw
+~$*
+*.log
+secrets.h
+.claude/

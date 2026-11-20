@@ -1,0 +1,12 @@
+# Changelog
+
+Every release, newest first. Each page keeps the full notes, numbers and links.
+
+- [What's new (2026-11-19): a day log - see what Claude did in SolidWorks today](2026-11-19-daylog.md)
+- [What's new (2026-11-18, v2.2): Claude inside SolidWorks, 5-100x faster API calls, design for change](2026-11-18-v2.2.md)
+- [What's new (2026-11-18): drawings, a light start check, and a review report](2026-11-18-drawings.md)
+- [What's new (2026-11-11): version 2 foundation - models a human can open, understand and change](2026-11-11-v2.md)
+- [What's new (2026-11-10): configurations, one-command updates, and the bugs a real change exposed](2026-11-10-configurations.md)
+- [What's new (2026-11-09): field results from a 738-component model in SolidWorks 2019](2026-11-09-field-results.md)
+
+[Back to the main page](../../README.md) · [עברית](../he/changelog/README.md)

@@ -1,0 +1,425 @@
+"""Assembly helpers: place parts by transform, interference check, picture, STL export, the held-by-mates gate
+(check_held: more than one Fixed component or any floating one fails)."""
+import os
+
+import pythoncom
+from win32com.client import VARIANT
+
+from sw_common import new_doc, save_as, T, swconst, OUT
+
+C = swconst.constants
+MM = 1e-3
+IDENT = ((1, 0, 0), (0, 1, 0), (0, 0, 1))
+
+
+def place(sw, items, path):
+    """items: list of (part path, (axX, axY, axZ), origin_mm). Components are fixed in place."""
+    mu = T(sw.GetMathUtility(), "IMathUtility")
+    for f, _, _ in items:
+        r = sw.OpenDoc6(f, C.swDocPART, C.swOpenDocOptions_Silent, "", 0, 0)
+        assert r[0] is not None, f"cannot open {f}"
+    doc = new_doc(sw, "asm")
+    asm = T(doc, "IAssemblyDoc")
+    sw.ActivateDoc3(doc.GetTitle(), False, 0, 0)
+    comps = []
+    for f, axes, o in items:
+        c = T(asm.AddComponent5(f, 0, "", False, "", 0, 0, 0), "IComponent2")
+        assert c is not None, f"AddComponent5 failed for {f}"
+        xf = [v for a in axes for v in a] + [v * MM for v in o] + [1, 0, 0, 0]
+        c.Transform2 = mu.CreateTransform(VARIANT(pythoncom.VT_ARRAY | pythoncom.VT_R8, xf))
+        comps.append(c)
+    doc.ClearSelection2(True)
+    for c in comps:
+        c.Select4(True, None, False)
+    asm.FixComponent()
+    doc.ClearSelection2(True)
+    doc.ForceRebuild3(False)
+    save_as(doc, path)
+    return doc, asm, comps
+
+
+def interferences(asm):
+    mgr = T(asm.InterferenceDetectionManager, "IInterferenceDetectionMgr")
+    mgr.TreatCoincidenceAsInterference = False
+    mgr.IncludeMultibodyPartInterferences = False
+    found = []
+    for itf in (mgr.GetInterferences() or ()):
+        itf = T(itf, "IInterference")
+        names = frozenset(T(c, "IComponent2").Name2.rsplit("-", 1)[0] for c in itf.Components)
+        found.append((names, itf.Volume / MM ** 3))
+    mgr.Done()
+    return found
+
+
+def check_interference(asm, expected):
+    """expected: {frozenset(names): approx volume mm3 or None (any)}. Returns list of problems."""
+    problems = []
+    found = {}
+    for names, vol in interferences(asm):         # one pair can touch in several places: sum them
+        found[names] = found.get(names, 0.0) + vol
+    found = list(found.items())
+    for names, vol in found:
+        exp = expected.get(names, "missing")
+        ok = exp is None or (exp != "missing" and abs(vol - exp) <= max(0.5, 0.05 * exp))
+        print(f"   interference {sorted(names)} {vol:.2f} mm3 -> {'expected' if ok else 'UNEXPECTED'}")
+        if not ok:
+            problems.append((names, vol))
+    for names in expected:
+        if not any(n == names for n, _ in found):
+            problems.append((names, "expected interference not found"))
+            print(f"   expected interference {sorted(names)} NOT found")
+    if not found:
+        print("   no interference")
+    return problems
+
+
+def picture(doc, path, view="*Isometric"):
+    doc.ShowNamedView2(view, -1)
+    doc.ViewZoomtofit2()
+    doc.GraphicsRedraw2()
+    ok, _, _ = doc.Extension.SaveAs(path, 0, 1, None, 0, 0)
+    return ok and os.path.exists(path)
+
+
+def export_stl(sw, part_path, stl_path):
+    r = sw.OpenDoc6(part_path, C.swDocPART, C.swOpenDocOptions_Silent, "", 0, 0)
+    d = T(r[0], "IModelDoc2")
+    sw.ActivateDoc3(d.GetTitle(), False, 0, 0)       # STL export only works on the active document
+    ok, _, _ = d.Extension.SaveAs(stl_path, 0, 1, None, 0, 0)
+    return ok and os.path.exists(stl_path)
+
+
+def stl_bbox(path):
+    """Bounding box (mm) of a binary STL - confirms units and size of the exported file."""
+    import struct
+    b = open(path, "rb").read()
+    n = struct.unpack("<I", b[80:84])[0]
+    lo, hi = [1e9] * 3, [-1e9] * 3
+    for i in range(n):
+        v = struct.unpack("<12f", b[84 + 50 * i:84 + 50 * i + 48])[3:]
+        for k in range(9):
+            lo[k % 3] = min(lo[k % 3], v[k]); hi[k % 3] = max(hi[k % 3], v[k])
+    return lo, hi, n
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# ROADMAP 3: many components at the top level (2019-safe)
+def place_many(sw, items, path, batch=100, new_doc_fn=None):
+    """items: [(file path, (X', Y', Z'), origin mm[, configuration])]. Loads referenced files without windows
+    (DocumentVisible False - opening ~46 visible documents crashed 2019), adds them with AddComponents3 in batches,
+    fixes them, saves after every batch. Returns (doc, asm, comps)."""
+    import time
+    from sw_common import new_doc as _new
+    files = sorted(set(i[0] for i in items))
+    try:
+        sw.DocumentVisible(False, C.swDocPART)
+        sw.DocumentVisible(False, C.swDocASSEMBLY)
+        for f in files:
+            kind = C.swDocASSEMBLY if f.lower().endswith(".sldasm") else C.swDocPART
+            if sw.OpenDoc6(f, kind, C.swOpenDocOptions_Silent, "", 0, 0)[0] is None:
+                raise RuntimeError(f"cannot open {f}")
+    finally:
+        sw.DocumentVisible(True, C.swDocPART)
+        sw.DocumentVisible(True, C.swDocASSEMBLY)
+    doc = (new_doc_fn or _new)(sw, "asm")
+    asm = T(doc, "IAssemblyDoc")
+    sw.ActivateDoc3(doc.GetTitle(), False, 0, 0)
+    doc.FeatureManager.EnableFeatureTree = False
+    comps = []
+    for s in range(0, len(items), batch):
+        chunk = items[s:s + batch]
+        xf = []
+        for it in chunk:
+            xf += [v for a in it[1] for v in a] + [v * MM for v in it[2]] + [1.0, 0.0, 0.0, 0.0]
+        res = asm.AddComponents3(VARIANT(pythoncom.VT_ARRAY | pythoncom.VT_BSTR, [it[0] for it in chunk]),
+                                 VARIANT(pythoncom.VT_ARRAY | pythoncom.VT_R8, xf),
+                                 VARIANT(pythoncom.VT_ARRAY | pythoncom.VT_BSTR, [""] * len(chunk)))
+        got = [T(c, "IComponent2") for c in (res or ())]
+        if len(got) != len(chunk):
+            raise RuntimeError(f"AddComponents3 returned {len(got)} of {len(chunk)}")
+        for c, it in zip(got, chunk):
+            if len(it) > 3 and it[3]:
+                c.ReferencedConfiguration = it[3]
+        doc.ClearSelection2(True)
+        for c in got:
+            c.Select4(True, None, False)
+        asm.FixComponent()
+        doc.ClearSelection2(True)
+        comps += got
+        save_as(doc, path)
+    doc.FeatureManager.EnableFeatureTree = True
+    doc.ForceRebuild3(False)
+    save_as(doc, path)
+    return doc, asm, comps
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# ROADMAP 2: mates on named reference geometry (sub-assemblies), checked against the expected transform
+def _sel(doc, name, typ, append, mark):
+    ok = doc.Extension.SelectByID2(name, typ, 0, 0, 0, append, mark, None, 0)
+    if not ok:
+        raise RuntimeError(f"select failed: {name} ({typ})")
+
+
+def _mate(doc, kind, align, ents, flip=False, dist=0.0, lock=False):
+    """ents: [(name, type)] selected with mark 1 (pitfall 18/31: marks matter for mates)."""
+    asm = T(doc, "IAssemblyDoc")
+    doc.ClearSelection2(True)
+    for k, (n, t) in enumerate(ents):
+        _sel(doc, n, t, k > 0, 1)
+    r = asm.AddMate5(kind, align, flip, dist * MM, dist * MM, dist * MM, 0, 0, 0, 0, 0, False, lock, 0)
+    mate, err = (r if isinstance(r, tuple) else (r, None))
+    doc.ClearSelection2(True)
+    if mate is None:
+        raise RuntimeError(f"mate failed ({kind}) on {ents}: error {err}")
+    return mate
+
+
+def mate_concentric(doc, a, b, align=None, lock=True):
+    """a, b: ('AX_HOLE1@NH-POLE-3IN-1@SA-PERIM', 'AXIS') or cylindrical faces ('...', 'FACE')."""
+    return _mate(doc, C.swMateCONCENTRIC, C.swMateAlignALIGNED if align is None else align, [a, b], lock=lock)
+
+
+def mate_coincident(doc, a, b, align=None, dist=0.0):
+    kind = C.swMateCOINCIDENT if not dist else C.swMateDISTANCE
+    return _mate(doc, kind, C.swMateAlignALIGNED if align is None else align, [a, b], dist=dist)
+
+
+def mate_errors(doc):
+    """Error codes of every mate in the assembly (the Mates folder must be clean)."""
+    bad = []
+    f = doc.FirstFeature()
+    while f is not None:
+        f = T(f, "IFeature")
+        if f.GetTypeName2() == "MateGroup":
+            m = f.GetFirstSubFeature()
+            while m is not None:
+                m = T(m, "IFeature")
+                code, warn = m.GetErrorCode2()
+                if code or warn:
+                    bad.append((m.Name, code, warn))
+                m = m.GetNextSubFeature()
+        f = f.GetNextFeature()
+    return bad
+
+
+def transform_error(comp, axes, origin_mm):
+    """Max deviation (mm, deg) of a component's solved transform from the expected one (flipped mates pass
+    the rebuild but fail here)."""
+    import math
+    d = list(T(comp.Transform2, "IMathTransform").ArrayData)
+    dpos = max(abs(d[9 + k] / MM - origin_mm[k]) for k in range(3))
+    dang = 0.0
+    for i in range(3):
+        got = d[3 * i:3 * i + 3]
+        dot = sum(g * e for g, e in zip(got, axes[i]))
+        dang = max(dang, math.degrees(math.acos(max(-1.0, min(1.0, dot)))))
+    return dpos, dang
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Component linear pattern (SolidWorks 2019, verified 10/11/2026 - proto_pattern2/3).
+# The ONLY recipe that worked: seed components selected with MARK 1, direction-1 axis MARK 2, direction-2 axis MARK 4,
+# then FeatureManager.FeatureLinearPattern2. (CreateDefinition(swFmLocalLPattern)+CreateFeature returned None;
+# FeatureLinearPattern5 by selection with other marks did nothing.) Count / spacing of an EXISTING pattern change
+# through its definition (AccessSelections + ModifyDefinition), no rebuild of anything.
+def linear_pattern(doc, seeds, axis1, n1, s1_mm, axis2=None, n2=1, s2_mm=0.0, flip1=False, flip2=False, name=None):
+    """seeds: IComponent2 list; axis1/axis2: IFeature (reference axis). Returns the pattern IFeature or raises."""
+    sm = T(doc.SelectionManager, "ISelectionMgr")
+    doc.ClearSelection2(True)
+    for k, c in enumerate(seeds):
+        sd = T(sm.CreateSelectData(), "ISelectData")
+        sd.Mark = 1
+        c.Select4(k > 0, sd, False)
+    axis1.Select2(True, 2)
+    if axis2 is not None:
+        axis2.Select2(True, 4)
+    f = doc.FeatureManager.FeatureLinearPattern2(int(n1), s1_mm * MM, int(n2), s2_mm * MM, flip1, flip2,
+                                                  "NULL", "NULL", False)
+    doc.ClearSelection2(True)
+    if f is None:
+        raise RuntimeError("component linear pattern not created")
+    f = T(f, "IFeature")
+    if name:
+        f.Name = name
+    return f
+
+
+def modify_pattern(doc, feat, n1=None, s1_mm=None, n2=None, s2_mm=None):
+    """Change count / spacing of an existing component linear pattern in place."""
+    data = T(feat.GetDefinition(), "ILocalLinearPatternFeatureData")
+    if not data.AccessSelections(doc, None):
+        raise RuntimeError(f"cannot access {feat.Name}")
+    if n1 is not None:
+        data.D1TotalInstances = int(n1)
+    if s1_mm is not None:
+        data.D1Spacing = s1_mm * MM
+    if n2 is not None:
+        data.D2TotalInstances = int(n2)
+    if s2_mm is not None:
+        data.D2Spacing = s2_mm * MM
+    if not feat.ModifyDefinition(data, doc, None):
+        raise RuntimeError(f"ModifyDefinition failed on {feat.Name}")
+    doc.ForceRebuild3(False)
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# Design-intent assemblies (v2): a skeleton part, seeds MATED to it, patterns driven by assembly equations.
+# Proven on SolidWorks 2019 (2026-11-10): a value changed in Tools > Equations inside SolidWorks moves everything.
+# ---------------------------------------------------------------------------------------------------------------
+def set_equation(doc, name, text):
+    """Add or replace the equation / global variable whose left side is "name" (part or assembly).
+    text: a SolidWorks expression: '4200', '"N_X" + 1', '"D1@PL_Z1@SKEL<1>.Part"'. Rebuild afterwards."""
+    eq = T(doc.GetEquationMgr(), "IEquationMgr")
+    for i in range(eq.GetCount()):
+        if eq.Equation(i).split("=")[0].strip() == f'"{name}"':
+            eq.SetEquation(i, f'"{name}" = {text}')
+            break
+    else:
+        if eq.Add2(-1, f'"{name}" = {text}', True) < 0:
+            raise RuntimeError(f'equation rejected: "{name}" = {text}')
+    eq.EvaluateAll()
+
+
+def equations(doc):
+    eq = T(doc.GetEquationMgr(), "IEquationMgr")
+    return [eq.Equation(i) for i in range(eq.GetCount())]
+
+
+def feature_dims(feat):
+    """[(full name, system value)] of a feature's display dimensions, e.g. ('D1@PAT_POSTS@GRID.Assembly', 4.0)."""
+    out = []
+    d = feat.GetFirstDisplayDimension()
+    while d is not None:
+        dd = T(T(d, "IDisplayDimension").GetDimension2(0), "IDimension")
+        out.append((dd.FullName, dd.SystemValue))
+        d = feat.GetNextDisplayDimension(d)
+    return out
+
+
+def drive_pattern(doc, feat, n1=None, s1=None, n2=None, s2=None):
+    """Drive a component linear pattern from assembly equations, so its count / spacing follow global variables.
+    2019: D1 = count direction 1, D3 = spacing direction 1, D2 = count direction 2, D4 = spacing direction 2.
+    Each argument is an expression string ('"N_X" + 1', '"SPAN_X"'); None leaves that dimension alone."""
+    for d, text in (("D1", n1), ("D3", s1), ("D2", n2), ("D4", s2)):
+        if text is not None:
+            set_equation(doc, f"{d}@{feat.Name}", text)
+
+
+def component_dim_ref(comp, feature, dim="D1"):
+    """Assembly-equation reference to a dimension of a component: '"D1@PL_Z1@SKEL<1>.Part"'. With it an assembly
+    global can READ the skeleton (one source inside SolidWorks)."""
+    base, inst = comp.Name2.rsplit("-", 1)
+    ext = "Assembly" if comp.GetPathName().lower().endswith(".sldasm") else "Part"
+    return f'"{dim}@{feature}@{base}<{inst}>.{ext}"'
+
+
+def edit_component_equation(sw, asm_doc, comp, name, text):
+    """Change a global / equation INSIDE a component (e.g. the skeleton) from the assembly. The component document
+    must be activated first: without it the change is silently ignored (2019)."""
+    cdoc = T(comp.GetModelDoc2(), "IModelDoc2")
+    sw.ActivateDoc3(cdoc.GetTitle(), False, 0, 0)
+    try:
+        set_equation(cdoc, name, text)
+        cdoc.EditRebuild3()
+    finally:
+        sw.ActivateDoc3(asm_doc.GetTitle(), False, 0, 0)
+    asm_doc.ForceRebuild3(False)
+
+
+def fix_only(doc, comp):
+    """Fix one component (the skeleton / base). Everything else should be mated or patterned."""
+    doc.ClearSelection2(True)
+    comp.Select4(False, None, False)
+    T(doc, "IAssemblyDoc").FixComponent()
+    doc.ClearSelection2(True)
+
+
+def held_stats(doc):
+    """How the top level of ONE assembly is held: fixed / mated / floating component names (pattern instances and
+    suppressed components are skipped) + the sub-assembly documents below it."""
+    r = {"name": doc.GetTitle(), "fixed": [], "mated": 0, "floating": [], "subs": []}
+    for c in T(doc, "IAssemblyDoc").GetComponents(True) or []:
+        c = T(c, "IComponent2")
+        if c.GetSuppression2() == 0 or c.IsPatternInstance():
+            continue
+        if c.IsFixed():
+            r["fixed"].append(c.Name2)
+        elif not c.GetMates():
+            r["floating"].append(c.Name2)
+        else:
+            r["mated"] += 1
+        if c.GetPathName().lower().endswith(".sldasm"):
+            m = c.GetModelDoc2()
+            r["subs"].append(T(m, "IModelDoc2") if m is not None else c.GetPathName())
+    return r
+
+
+def check_held(doc, fixed_ok=None, recursive=True, log=True):
+    """Rule 3 gate: in every assembly (and every sub-assembly file, once) at most ONE component is Fixed (the skeleton
+    / base) and none floats (no Fix, no mates). Raises RuntimeError on a violation, so a build cannot report success.
+    fixed_ok="<reason>": the user approved computed-transform placement (assemblies.md table, e.g. 700+ repeats on
+    2019) - fixed components then pass, the reason is logged and must be told to the user. Floating never passes.
+    Returns one dict per assembly checked."""
+    out, todo, seen, bad = [], [doc], set(), []
+    while todo:
+        d = todo.pop(0)
+        if isinstance(d, str):                      # sub-assembly not loaded (lightweight / suppressed)
+            out.append({"name": os.path.basename(d), "skipped": "not loaded"})
+            continue
+        key = d.GetPathName() or d.GetTitle()
+        if key in seen:
+            continue
+        seen.add(key)
+        r = held_stats(d)
+        r["ok"] = not r["floating"] and (len(r["fixed"]) <= 1 or bool(fixed_ok))
+        if not r["ok"]:
+            why = []
+            if len(r["fixed"]) > 1:
+                why.append(f"{len(r['fixed'])} components Fixed ({', '.join(r['fixed'][:5])}"
+                           f"{', ...' if len(r['fixed']) > 5 else ''}) - only the skeleton / base may be fixed, mate the rest")
+            if r["floating"]:
+                why.append(f"{len(r['floating'])} floating ({', '.join(r['floating'][:5])}) - no Fix and no mates")
+            bad.append(f"{r['name']}: " + "; ".join(why))
+        if recursive:
+            todo += r["subs"]
+        r["subs"] = len(r["subs"])
+        out.append(r)
+    if log:
+        try:
+            import reviewlog
+            for r in out:
+                if "skipped" in r:
+                    continue
+                detail = f"fixed {len(r['fixed'])}, mated {r['mated']}, floating {len(r['floating'])}"
+                if fixed_ok and len(r["fixed"]) > 1:
+                    detail += f"; fixed approved: {fixed_ok}"
+                reviewlog.record("assembly", r["name"], [("held by mates (rule 3)", r["ok"], detail)])
+        except Exception:
+            pass
+    if bad:
+        raise RuntimeError("HOLD FAIL " + " | ".join(bad))
+    return out
+
+
+def settle_distance_mates(doc, items, tol=0.01, passes=4):
+    """A distance mate has two solutions. items: [(component, axes, origin_mm, [its distance mates])].
+    Flip the mates of every component that is not at its computed position, repeat until all are (one flip
+    re-solves the assembly and can move another component). Returns the names flipped; raises if not settled."""
+    flipped = []
+    for _ in range(passes):
+        wrong = [it for it in items if transform_error(it[0], it[1], it[2])[0] > tol]
+        if not wrong:
+            return flipped
+        for comp, axes, o, mates in wrong:
+            if transform_error(comp, axes, o)[0] <= tol:
+                continue
+            for m in mates:
+                m = T(m, "IMate2")
+                m.Flipped = not m.Flipped
+            doc.ForceRebuild3(False)
+            flipped.append(comp.Name2)
+    left = [it[0].Name2 for it in items if transform_error(it[0], it[1], it[2])[0] > tol]
+    if left:
+        raise RuntimeError(f"distance mates not settled: {left[:5]}")
+    return flipped
