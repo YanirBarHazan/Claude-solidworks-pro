@@ -25,7 +25,7 @@ PANEL = os.path.join(os.path.expanduser("~"), ".solidworks-api", "swpanel")
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 os.environ.setdefault("SW_OUT", os.path.join(PANEL, "scratch"))
-os.environ.setdefault("SW_REQUIRE_REV", "27.")
+os.environ.setdefault("SW_REQUIRE_REV", "")   # any version unless the user locked one (setup.md)
 os.environ["SW_DAYLOG_MODE"] = "worker"   # day log: one line per changing command (serve), not per process
 os.environ["SW_FAST"] = "0"   # long-lived: fast mode only around each command (serve), never for the whole session
 import pythoncom  # noqa: E402

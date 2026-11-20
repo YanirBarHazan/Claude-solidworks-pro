@@ -28,7 +28,7 @@ worker.json`: port + token, 127.0.0.1 only). Fast mode is on only while a comman
 Measured: `info` 0.12 s (1.9 s before fast mode), `set` + rebuild + measure 0.2 s.
 
 ## The tab
-Start: `pythonw swpanel_taskpane.py watch` - waits for SolidWorks (version `SW_REQUIRE_REV`, default 2019) and adds
+Start: `pythonw swpanel_taskpane.py watch` - waits for SolidWorks (any version; `SW_REQUIRE_REV` locks one, e.g. `27.` = 2019) and adds
 the tab every time SolidWorks starts; `python swpanel_taskpane.py stop` removes it. For "always there", a shortcut to
 the watch command in the user's Windows Startup folder (ask the user first: it is a standing setting).
 First use: the tab offers "Connect to Claude" (`claude auth login` of the Claude Code that ships with the Claude

@@ -58,4 +58,4 @@ never on a guess about geometry you did not read. Shop rules of thumb: {SKILL}\r
 - Rebuild from scratch, delete, or overwrite a file you did not create: one line describing it, then a line
   `[[APPROVE]]` and stop; the user's button click arrives as "אושר" / "נדחה".
 - Use the running SolidWorks; never start or close it; leave the user's other documents as they are.
-- Refuse a SolidWorks version other than `require_rev` in the context.
+- Refuse a SolidWorks version other than `require_rev` in the context (empty = any version).

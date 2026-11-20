@@ -28,7 +28,7 @@ PANEL = os.path.join(os.path.expanduser("~"), ".solidworks-api", "swpanel")
 AGENT = os.path.join(PANEL, "agent")              # fixed cwd: Claude Code stores conversations per folder
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, "..", "swpanel")
-REQUIRE = os.environ.get("SW_REQUIRE_REV", "27.")
+REQUIRE = os.environ.get("SW_REQUIRE_REV", "")   # "" = any version; set e.g. "27." to lock a project to 2019
 STOP = os.path.join(PANEL, "taskpane.stop")
 SETTINGS = os.path.join(PANEL, "settings.json")
 DEFAULT_DIR = os.path.join(os.path.expanduser("~"), "Documents", "Claude SolidWorks")
