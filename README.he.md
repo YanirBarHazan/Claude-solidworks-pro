@@ -12,8 +12,8 @@
 [English](README.md) · [מדריך למתחילים](docs/he/getting-started.md) · [איך זה עובד](docs/how-it-works.md) · [יומן עדכונים](docs/he/changelog/README.md) · [פרויקט לדוגמה](examples/desk-agent/README.md)
 
 <p align="center">
-  <a href="assets/demo/demo.mp4"><img src="assets/demo/demo.gif" width="720" alt="קלוד בונה פלאנג' פרמטרי בזמן אמת בסולידוורקס: פלטה, בוס, קדח וחורי ברגים"></a>
-  <br><sub>קלוד בונה פלאנג' פרמטרי בזמן אמת בסולידוורקס (מהירות כפולה). <a href="assets/demo/demo.mp4">לסרטון המלא</a></sub>
+  <a href="assets/demo/demo.mp4"><img src="assets/demo/demo.gif" width="720" alt="קלוד בונה עמדת טלפון מתקפלת פרמטרית מתוך לשונית Claude בסולידוורקס: בסיס, משענת, פין ציר, הרכבה עם מייטים ושינוי חי של זווית, רוחב ופילטים"></a>
+  <br><sub>קלוד בונה עמדת טלפון מתקפלת (3 חלקים + הרכבה) מתוך לשונית Claude בסולידוורקס, ואז משנה אותה במקום (זמני חשיבה קוצצו, מואץ). <a href="assets/demo/demo.mp4">לסרטון המלא</a></sub>
 </p>
 
 זו **מיומנות (skill) ל-[Claude Code](https://claude.com/claude-code)** שהופכת את קלוד למהנדס סולידוורקס על המחשב שלך. אומרים במילים מה צריך, בעברית או באנגלית. קלוד כותב ומריץ את הקוד, בונה חלקים והרכבות פרמטריים אמיתיים, **בודק כל מידה וכל התאמה במספרים, ורק אז אומר שסיים.** בלי להעתיק שגיאות הלוך וחזור.

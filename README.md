@@ -10,8 +10,8 @@
 [עברית](README.he.md) · [Getting started](docs/getting-started.md) · [How it works](docs/how-it-works.md) · [Changelog](docs/changelog/README.md) · [Example project](examples/desk-agent/README.md)
 
 <p align="center">
-  <a href="assets/demo/demo.mp4"><img src="assets/demo/demo.gif" width="720" alt="Claude building a parametric flange plate live in SolidWorks: plate, boss, bore and bolt holes"></a>
-  <br><sub>Claude building a parametric flange live in SolidWorks (2x speed). <a href="assets/demo/demo.mp4">Full video</a></sub>
+  <a href="assets/demo/demo.mp4"><img src="assets/demo/demo.gif" width="720" alt="Claude building a parametric folding phone stand live in SolidWorks from the Claude tab: base, back plate, hinge pin, mated assembly, then a live change of angle, width and fillets"></a>
+  <br><sub>Claude building a folding phone stand (3 parts + mated assembly) from the Claude tab inside SolidWorks, then changing it in place (thinking time cut, sped up). <a href="assets/demo/demo.mp4">Full video</a></sub>
 </p>
 
 A **skill for [Claude Code](https://claude.com/claude-code)** that turns Claude into a SolidWorks engineer on your own PC. You say what you need in plain words, Hebrew or English. Claude writes and runs the code, builds real parametric parts and assemblies, **checks every dimension and every fit with numbers, and only then says it's done.** No copying error messages back and forth.
