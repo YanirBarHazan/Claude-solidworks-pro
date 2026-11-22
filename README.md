@@ -83,6 +83,17 @@ SolidWorks' API is huge and full of traps. The skill packages every trap that br
 5. Open Claude Code in an empty folder and ask, for example:
    > *Design a wall bracket in SolidWorks for a 40 mm pipe, two M5 screws, printable in PLA without supports.*
 
+## Updating
+
+The Claude tab keeps running the version it started with, so replacing files alone leaves the old tab in SolidWorks. Close SolidWorks, then in PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/YanirBarHazan/Claude-solidworks-pro/main/update.ps1 -OutFile $env:TEMP\swupd.ps1
+powershell -ExecutionPolicy Bypass -File $env:TEMP\swupd.ps1
+```
+
+It stops the old tab and worker, replaces `%USERPROFILE%\.claude\skills\solidworks-api` with the latest version (the old one goes to `~\.solidworks-api\backups\`; chats and settings are kept) and restarts the tab watcher. Open SolidWorks again and restart Claude Code. If you uploaded the skill in the Claude desktop app, also upload the new [`dist/solidworks-api.skill`](dist/solidworks-api.skill) there.
+
 ## Repository layout
 
 ```

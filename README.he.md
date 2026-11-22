@@ -83,6 +83,21 @@ flowchart LR
 5. פותחים את Claude Code בתיקייה ריקה ומבקשים, למשל:
    > *תתכנן לי בסולידוורקס תושבת לקיר לצינור של 40 מ"מ, שני ברגי M5, להדפסה ב-PLA בלי תמיכות.*
 
+## עדכון לגרסה חדשה
+
+לשונית Claude ממשיכה להריץ את הגרסה שאיתה היא עלתה, ולכן החלפת הקבצים לבד משאירה בסולידוורקס את הלשונית הישנה. סוגרים את סולידוורקס, ומריצים ב-PowerShell:
+
+</div>
+
+```powershell
+irm https://raw.githubusercontent.com/YanirBarHazan/Claude-solidworks-pro/main/update.ps1 -OutFile $env:TEMP\swupd.ps1
+powershell -ExecutionPolicy Bypass -File $env:TEMP\swupd.ps1
+```
+
+<div dir="rtl">
+
+הסקריפט עוצר את הלשונית הישנה, מחליף את `%USERPROFILE%\.claude\skills\solidworks-api` בגרסה האחרונה (הישנה נשמרת ב-`~\.solidworks-api\backups\`, הצ'אטים וההגדרות נשארים) ומפעיל מחדש את הלשונית. פותחים שוב את סולידוורקס ומפעילים מחדש את Claude Code. מי שהעלה את המיומנות באפליקציית Claude מעלה שם גם את [`dist/solidworks-api.skill`](dist/solidworks-api.skill) החדש.
+
 ## עדכונים אחרונים
 
 - **18/11/2026, גרסה 2.2: קלוד בתוך סולידוורקס.** לשונית צ'אט בחלונית המשימות, מצב מהיר עם קריאות מהירות עד פי 100, ותכנון עמיד לשינויים: שינוי מפתח ובדיקה מלאה ב-5 שניות. [פירוט](docs/he/changelog/2026-11-18-v2.2.md)
