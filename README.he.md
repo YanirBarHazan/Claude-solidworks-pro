@@ -9,14 +9,16 @@
 ![Claude Code skill](https://img.shields.io/badge/Claude%20Code-skill-orange)
 ![Hebrew + English](https://img.shields.io/badge/language-Hebrew%20%7C%20English-blue)
 
-> **נבנה על ידי יניר בר חזן.** ניסית? אשמח לשמוע איך היה ומה לשפר: **[לינקדאין](https://www.linkedin.com/in/yanir-hazan)**.
-> **חברות:** רוצים להטמיע את זה אצלכם, עם מיומנות מותאמת לתבניות, לתקנים, ל-PDM ולספריית החלקים שלכם? **[דברו איתי בלינקדאין](https://www.linkedin.com/in/yanir-hazan)**.
-
 [English](README.md) · [מדריך למתחילים](docs/he/getting-started.md) · [איך זה עובד](docs/how-it-works.md) · [יומן עדכונים](docs/he/changelog/README.md) · [פרויקט לדוגמה](examples/desk-agent/README.md)
 
 <p align="center">
   <a href="assets/demo/demo.mp4"><img src="assets/demo/demo.gif" width="720" alt="קלוד בונה עמדת טלפון מתקפלת פרמטרית מתוך לשונית Claude בסולידוורקס: בסיס, משענת, פין ציר, הרכבה עם מייטים ושינוי חי של זווית, רוחב ופילטים"></a>
   <br><sub>קלוד בונה עמדת טלפון מתקפלת (3 חלקים + הרכבה) מתוך לשונית Claude בסולידוורקס, ואז משנה אותה במקום (זמני חשיבה קוצצו, מואץ). <a href="assets/demo/demo.mp4">לסרטון המלא</a></sub>
+</p>
+
+<p align="center">
+  <a href="https://www.linkedin.com/in/yanir-hazan"><img src="https://img.shields.io/badge/%D7%A0%D7%99%D7%A1%D7%99%D7%AA%3F_%D7%A1%D7%A4%D7%A8_%D7%9C%D7%99_%D7%90%D7%99%D7%9A_%D7%94%D7%99%D7%94-LinkedIn-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white" alt="Feedback on LinkedIn"></a>
+  <a href="https://www.linkedin.com/in/yanir-hazan"><img src="https://img.shields.io/badge/%D7%92%D7%A8%D7%A1%D7%94_%D7%9E%D7%95%D7%AA%D7%90%D7%9E%D7%AA_%D7%9C%D7%97%D7%91%D7%A8%D7%94_%D7%A9%D7%9C%D7%9A-%D7%91%D7%95%D7%90%D7%95_%D7%A0%D7%93%D7%91%D7%A8-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white" alt="Custom version for your company"></a>
 </p>
 
 זו **מיומנות (skill) ל-[Claude Code](https://claude.com/claude-code)** שהופכת את קלוד למהנדס סולידוורקס על המחשב שלך. אומרים במילים מה צריך, בעברית או באנגלית. קלוד כותב ומריץ את הקוד, בונה חלקים והרכבות פרמטריים אמיתיים, **בודק כל מידה וכל התאמה במספרים, ורק אז אומר שסיים.** בלי להעתיק שגיאות הלוך וחזור.
