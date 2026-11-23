@@ -12,11 +12,19 @@
 #   4. the Claude tab in SolidWorks - scripts\install_panel.py: pywin32, stops an old tab, starts the new one,
 #                   and starts it at every Windows sign-in
 # Re-run it any time to update.
+#
+# Pinned to one version (recommended at work - you install exactly the code you read):
+#   $env:SW_INSTALL_REF = "v2.4.0"; irm https://raw.githubusercontent.com/YanirBarHazan/Claude-solidworks-pro/v2.4.0/install.ps1 | iex
+# or download this file, read it, then:  powershell -ExecutionPolicy Bypass -File install.ps1 -Ref v2.4.0
+# -Ref takes a release tag, a branch or a commit. Default: $env:SW_INSTALL_REF, else main (the latest).
+# Everything this changes on the PC is listed in README.md, section "What it changes on your PC".
 
 param(
     [string]$SkillDir = (Join-Path $env:USERPROFILE ".claude\skills\solidworks-api"),
-    [string]$Branch = "main"
+    [string]$Ref = $(if ($env:SW_INSTALL_REF) { $env:SW_INSTALL_REF } else { "main" }),
+    [string]$Branch = ""            # old name of -Ref, kept for old links
 )
+if ($Branch) { $Ref = $Branch }
 
 $ErrorActionPreference = "Stop"
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -47,6 +55,7 @@ function Find-Python {
 
 Write-Host ""
 Write-Host "== Claude x SolidWorks: install / update ==" -ForegroundColor Cyan
+Write-Host "  version: $(if ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot 'skill\solidworks-api\SKILL.md'))) { 'this folder' } else { $Ref })"
 Write-Host ""
 
 # 1. Python
@@ -85,7 +94,8 @@ if ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "skill\solidworks-api
 } else {
     $tmp = Join-Path $env:TEMP ("sw-skill-" + [guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Force $tmp | Out-Null
-    Invoke-WebRequest -UseBasicParsing "https://codeload.github.com/$repo/zip/refs/heads/$Branch" -OutFile "$tmp\repo.zip"
+    # codeload takes any ref: a tag (v2.4.0), a branch (main) or a commit
+    Invoke-WebRequest -UseBasicParsing "https://codeload.github.com/$repo/zip/$Ref" -OutFile "$tmp\repo.zip"
     Expand-Archive "$tmp\repo.zip" -DestinationPath $tmp -Force
     $src = Get-ChildItem -Directory $tmp | ForEach-Object { Join-Path $_.FullName "skill\solidworks-api" } |
         Where-Object { Test-Path (Join-Path $_ "SKILL.md") } | Select-Object -First 1

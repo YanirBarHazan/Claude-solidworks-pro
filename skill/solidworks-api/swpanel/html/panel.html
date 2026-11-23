@@ -124,6 +124,29 @@
           padding: 1px 8px; margin-left: 4px; cursor: pointer; background: #10161e; }
   .chip:hover { color: #38c8f0; border-color: #38c8f0; }
   #foot { font: 9px Consolas, monospace; color: #4f5d6d; text-align: center; padding: 4px 0 0 0; }
+
+  /* language flags (top bar): the active one bright, the other dimmed */
+  .flag { background: transparent; border: 1px solid transparent; border-radius: 3px; padding: 2px; margin: 0 1px;
+          cursor: pointer; opacity: .4; line-height: 0; }
+  .flag:hover { opacity: .8; }
+  .flag.on { opacity: 1; border-color: #2c3b4f; }
+  .flag svg { display: block; }
+
+  /* English: left-to-right. The rules above are written for Hebrew (accent on the right); mirror them here. */
+  body.ltr .av { margin-left: 0; margin-right: 8px; }
+  body.ltr .who .role, body.ltr .who span.tm { margin-right: 0; margin-left: 6px; }
+  body.ltr .msg { border-right: 1px solid #233041; border-left: 2px solid #38c8f0; }
+  body.ltr .row.me .msg { border-right-color: #2a3a4e; border-left-color: #6b7f96; }
+  body.ltr .msg.err { border-right-color: #5b2328; border-left-color: #f87171; }
+  body.ltr .li { padding-right: 0; padding-left: 12px; }
+  body.ltr .li:before { right: auto; left: 2px; }
+  body.ltr .ins { border-right-width: 1px; border-right-color: #233041; border-left-width: 3px; }
+  body.ltr .ins.mfg { border-left-color: #f5a524; } body.ltr .ins.opt { border-left-color: #34d399; }
+  body.ltr .ins.why { border-left-color: #a78bfa; } body.ltr .ins.warn { border-left-color: #f87171; }
+  body.ltr .ins.asm { border-left-color: #7d8b9c; }
+  body.ltr .ins .tag, body.ltr #info .k { margin-left: 0; margin-right: 6px; }
+  body.ltr .card button { margin-left: 0; margin-right: 6px; }
+  body.ltr .chip { margin-left: 0; margin-right: 4px; }
 </style>
 <script>
   function act(a) { document.getElementById('flag').value = a; }
@@ -131,16 +154,72 @@
   function foc(on) { document.getElementById('pill').className = on ? 'focus' : ''; }
   // quick prompts: fill the box (the user can edit before sending)
   function ask(t) { var r = document.getElementById('req'); r.value = t; r.focus(); }
+
+  // Two languages. Python keeps the same choice in settings.json ("lang") and opens the page as panel.html#he / #en.
+  // Keys here = the static labels; swpanel_taskpane.py TXT holds the lines Python writes into the chat.
+  var L = {
+    he: { dir: 'rtl', title: 'מהנדס Claude', folder: 'תיקיית שמירה', newchat: 'שיחה חדשה', file: 'צרף קובץ',
+          stop: 'עצור', send: 'שלח', ph: 'מה לעשות? (Enter שולח, Shift+Enter שורה חדשה)',
+          foot: 'Claude עלול לטעות - בדוק מידות חשובות מול ספק / שרטוט.',
+          chips: [['בדיקת ייצור', 'בדוק את החלק לייצור: באיזו שיטה הכי נכון לייצר אותו ומה כדאי לשנות'],
+                  ['ייעול ועלות', 'איך להוזיל או לפשט את החלק / ההרכבה בלי לפגוע בתפקוד?'],
+                  ['הסבר מודל', 'הסבר לי את המודל: מה מניע מה ואיך משנים אותו']] },
+    en: { dir: 'ltr', title: 'Claude engineer', folder: 'Save folder', newchat: 'New chat', file: 'Attach file',
+          stop: 'Stop', send: 'Send', ph: 'What should I do? (Enter sends, Shift+Enter new line)',
+          foot: 'Claude can make mistakes - check critical dimensions against the supplier / drawing.',
+          chips: [['Manufacturing check', 'Check this part for manufacturing: which method suits it best and what should change'],
+                  ['Cost & simplify', 'How can this part / assembly be made cheaper or simpler without hurting its function?'],
+                  ['Explain model', 'Explain this model: what drives what and how to change it']] }
+  };
+  var cur = 'he';
+  function byId(i) { return document.getElementById(i); }
+  function setLang(l) {
+    if (!L[l]) { l = 'he'; }
+    cur = l;
+    var t = L[l], i, c = '';
+    document.documentElement.dir = t.dir;
+    document.documentElement.lang = l;
+    document.body.className = t.dir;
+    byId('t1txt').innerText = t.title;
+    byId('bfolder').title = t.folder; byId('bnew').title = t.newchat; byId('plus').title = t.file;
+    byId('stop').title = t.stop; byId('send').title = t.send;
+    byId('req').placeholder = t.ph;
+    byId('foot').innerText = t.foot;
+    for (i = 0; i < t.chips.length; i++) {
+      c += '<span class="chip" onclick="ask(L[cur].chips[' + i + '][1])">' + t.chips[i][0] + '</span>';
+    }
+    byId('chips').innerHTML = c;
+    byId('fl_he').className = 'flag' + (l == 'he' ? ' on' : '');
+    byId('fl_en').className = 'flag' + (l == 'en' ? ' on' : '');
+  }
+  function pickLang(l) { if (l != cur) { setLang(l); act('lang:' + l); } }
+  function fromHash() { setLang((location.hash || '#he').substring(1)); }
+  window.onload = fromHash;
+  window.onhashchange = fromHash;
 </script>
 </head>
 <body>
 <div id="brand"><b>&#9632;</b> CLAUDE // SOLIDWORKS ENGINEERING</div>
 <div id="top">
   <div id="logo">C</div>
-  <div class="title"><div class="t1">מהנדס Claude <span class="led"></span></div>
+  <div class="title"><div class="t1"><span id="t1txt">מהנדס Claude</span> <span class="led"></span></div>
     <div class="t2">DESIGN · DFM · OPTIMISE</div></div>
-  <button class="tbtn" onclick="act('folder')" title="תיקיית שמירה"><i class="ic">&#xE8B7;</i></button>
-  <button class="tbtn" onclick="act('new')" title="שיחה חדשה"><i class="ic">&#xE710;</i></button>
+  <button class="flag on" id="fl_he" onclick="pickLang('he')" title="עברית">
+    <svg width="18" height="13" viewBox="0 0 220 160"><rect width="220" height="160" fill="#fff"/>
+      <rect y="15" width="220" height="25" fill="#0038b8"/><rect y="120" width="220" height="25" fill="#0038b8"/>
+      <polygon points="110,47 138.6,96.5 81.4,96.5" fill="none" stroke="#0038b8" stroke-width="6"/>
+      <polygon points="110,113 138.6,63.5 81.4,63.5" fill="none" stroke="#0038b8" stroke-width="6"/></svg></button>
+  <button class="flag" id="fl_en" onclick="pickLang('en')" title="English">
+    <svg width="18" height="13" viewBox="0 0 60 30" preserveAspectRatio="none">
+      <clipPath id="uk_s"><path d="M0,0 v30 h60 v-30 z"/></clipPath>
+      <clipPath id="uk_t"><path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z"/></clipPath>
+      <g clip-path="url(#uk_s)"><path d="M0,0 v30 h60 v-30 z" fill="#012169"/>
+        <path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/>
+        <path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#uk_t)" stroke="#C8102E" stroke-width="4"/>
+        <path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/>
+        <path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/></g></svg></button>
+  <button class="tbtn" id="bfolder" onclick="act('folder')" title="תיקיית שמירה"><i class="ic">&#xE8B7;</i></button>
+  <button class="tbtn" id="bnew" onclick="act('new')" title="שיחה חדשה"><i class="ic">&#xE710;</i></button>
 </div>
 <div id="info">
   <div><span class="k sel">SEL</span><span class="v" id="sel">...</span></div>

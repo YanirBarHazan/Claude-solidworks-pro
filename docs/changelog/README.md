@@ -2,6 +2,7 @@
 
 Every release, newest first. Each page keeps the full notes, numbers and links.
 
+- [What's new (2026-11-23, v2.4): English tab, clear permissions, pinned install, lighter start](2026-11-23-v2.4.md)
 - [What's new (2026-11-23, v2.3): install in one line, the tab opens by itself, start questions every time](2026-11-23-onboarding.md)
 - [What's new (2026-11-20): the Claude tab as a manufacturing engineer](2026-11-20-engineer-panel.md)
 - [What's new (2026-11-19): a day log - see what Claude did in SolidWorks today](2026-11-19-daylog.md)

@@ -4,8 +4,12 @@ The most expensive rules of the first field project (never rebuild a part to cha
 sub-assemblies, configurations by suppression, no pictures) were learned in the middle of the work. Ask for them
 at the start. Talk in the user's language; keep part and parameter names exactly as the user writes them.
 
-## 0. Start of EVERY project - mandatory, before any CAD (one message, with your recommendation)
-Do not skip this round, even for a "quick" request; a one-line answer from the user is fine. Ask:
+## 0. Start of every new design - before any CAD (one message, with your recommendation)
+Ask this round for a new design, a new part or assembly, a change to the feature structure, or a rebuild; a
+one-line answer from the user is fine. Skip it for a question, a read-only look, or a **small change** to an
+existing model (values, a fillet / chamfer, rename, a property, save / export, one appended feature): do the change
+at the `verify_level` of `project.json` (else `standard`) and say in one closing line which level was used and that
+the user can change it. A value the user did not give is still asked, never guessed. Ask:
 1. **Verification level** - how much is proven while building (`scripts/reviewlog.py`):
    - `quick`: rebuild errors, one body, bounding box. Concepts, fast iterations.
    - `standard` (recommended): + volume against a hand calculation, every sketch fully defined, edit tests.

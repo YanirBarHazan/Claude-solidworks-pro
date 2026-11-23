@@ -33,6 +33,9 @@ Install / update / check: `python install_panel.py [--check|--remove]` (SKILL.md
 `pythonw swpanel_taskpane.py watch` - waits for SolidWorks (any version; `SW_REQUIRE_REV` locks one, e.g. `27.` = 2019) and adds
 the tab every time SolidWorks starts; `python swpanel_taskpane.py stop` removes it. `install_panel.py` adds the Windows sign-in shortcut
 (the owner wants the tab always there; `--remove` takes it away).
+Language: Hebrew or English, switched with the flag at the top of the tab (`settings.json` `"lang"`; first run
+follows the Windows display language). The page reads it from `panel.html#he` / `#en`; Python's lines come from
+`TXT` in `swpanel_taskpane.py`; every message carries `ui_language` and Claude answers in it.
 First use: the tab offers "Connect to Claude" (`claude auth login` of the Claude Code that ships with the Claude
 app; once per computer).
 How it works: `CreateTaskpaneView2` + `AddControl("Shell.Explorer.2")` hosts `swpanel/html/panel.html`; the Python

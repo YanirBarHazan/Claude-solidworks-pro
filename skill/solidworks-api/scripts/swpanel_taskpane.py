@@ -36,25 +36,79 @@ SEL_TYPES = {1: "edge", 2: "face", 3: "vertex", 4: "plane", 5: "axis", 9: "sketc
              20: "component", 22: "feature", 25: "dimension", 31: "sketch"}  # swSelectType_e (subset)
 ALLOWED_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep", "Skill", "TodoWrite", "Bash(python:*)", "Bash(py:*)", "PowerShell(python:*)", "PowerShell(py:*)",
                  "Bash(ls:*)", "Bash(dir:*)", "Bash(mkdir:*)", "Bash(copy:*)", "Bash(cp:*)", "Bash(tasklist:*)"]
-TXT = {
-    "hello": "שלום. בחר משהו בסוליד וכתוב מה לעשות.",
-    "new": "שיחה חדשה",
-    "resumed": "ממשיך את השיחה הקודמת (שיחה חדשה - בכפתור למעלה)",
-    "stopped": "נעצר.",
-    "no_cli": "Claude Code לא נמצא במחשב (אפליקציית Claude מותקנת?)",
-    "login": "Claude לא מחובר - לחץ 'התחבר ל-Claude' (פעם אחת במחשב).",
-    "need_login": "כדי שאוכל לעבוד מכאן צריך להתחבר לחשבון Claude פעם אחת במחשב הזה.",
-    "login_btn": "התחבר ל-Claude",
-    "login_wait": "נפתח דפדפן להתחברות. אשר שם - הלשונית תזהה לבד כשסיימת.",
-    "login_ok": "מחובר. אפשר לכתוב.",
-    "busy": "Claude עדיין עובד על הבקשה הקודמת.",
-    "dir": "תיקיית שמירה: {d}",
-    "att": "מצורף: {n}",
-    "done": "{s:.0f} שנ'",
-    "approved": "אושר",
-    "approve_q": "לבצע?",
-    "rejected": "נדחה",
+TXT = {                      # every line the tab itself shows; panel.html holds the static labels (same keys)
+    "he": {
+        "hello": "שלום. בחר משהו בסוליד וכתוב מה לעשות.",
+        "new": "שיחה חדשה",
+        "resumed": "ממשיך את השיחה הקודמת (שיחה חדשה - בכפתור למעלה)",
+        "stopped": "נעצר.",
+        "no_cli": "Claude Code לא נמצא במחשב (אפליקציית Claude מותקנת?)",
+        "need_login": "כדי שאוכל לעבוד מכאן צריך להתחבר לחשבון Claude פעם אחת במחשב הזה.",
+        "login_btn": "התחבר ל-Claude",
+        "login_wait": "נפתח דפדפן להתחברות. אשר שם - הלשונית תזהה לבד כשסיימת.",
+        "login_ok": "מחובר. אפשר לכתוב.",
+        "busy": "Claude עדיין עובד על הבקשה הקודמת.",
+        "dir": "תיקיית שמירה: {d}",
+        "att": "מצורף: {n}",
+        "done": "{s:.0f} שנ'",
+        "denied": "{n} נחסמו",
+        "approved": "אושר",
+        "rejected": "נדחה",
+        "approve_q": "לבצע?",
+        "approve_btn": "אשר",
+        "reject_btn": "דחה",
+        "you": "אתה",
+        "you_av": "א",
+        "no_doc": "אין מסמך פעיל",
+        "no_sw": "SolidWorks לא זמין",
+        "pick_dir": "תיקיית שמירה",
+        "pick_file": "צרף קובץ",
+        "lang_set": "עברית",
+    },
+    "en": {
+        "hello": "Hi. Select something in SolidWorks and tell me what to do.",
+        "new": "New chat",
+        "resumed": "Continuing the previous chat (new chat: the button at the top)",
+        "stopped": "Stopped.",
+        "no_cli": "Claude Code was not found on this PC (is the Claude app installed?)",
+        "need_login": "To work from here, sign in to your Claude account once on this PC.",
+        "login_btn": "Sign in to Claude",
+        "login_wait": "A browser opens for sign-in. Confirm there - the tab notices by itself when you are done.",
+        "login_ok": "Signed in. You can type now.",
+        "busy": "Claude is still working on the previous request.",
+        "dir": "Save folder: {d}",
+        "att": "Attached: {n}",
+        "done": "{s:.0f} s",
+        "denied": "{n} blocked",
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "approve_q": "Go ahead?",
+        "approve_btn": "Approve",
+        "reject_btn": "Reject",
+        "you": "You",
+        "you_av": "Y",
+        "no_doc": "no active document",
+        "no_sw": "SolidWorks not available",
+        "pick_dir": "Save folder",
+        "pick_file": "Attach file",
+        "lang_set": "English",
+    },
 }
+LANGS = tuple(TXT)
+
+
+def default_lang():
+    """Hebrew when Windows itself is in Hebrew, else English. The flag at the top of the tab overrides it."""
+    try:
+        import ctypes
+        return "he" if ctypes.windll.kernel32.GetUserDefaultUILanguage() & 0x3FF == 0x0D else "en"
+    except Exception:
+        return "he"
+
+
+def ui_lang(settings):
+    lang = (settings or {}).get("lang")
+    return lang if lang in LANGS else default_lang()
 
 
 def log(s):
@@ -236,11 +290,16 @@ class Bridge:
         self.sel_info, self.sel_txt = None, ""
         self.set = read_json(SETTINGS, {}) or {}
         self.set.setdefault("save_dir", DEFAULT_DIR)
+        self.lang = ui_lang(self.set)
         os.makedirs(self.set["save_dir"], exist_ok=True)
         self.exe = find_claude()
         self.pending_text = ""
         self.last_request = ""
         self.last_reply = ""
+
+    def t(self, key, **kw):
+        s = TXT[self.lang].get(key) or TXT["he"][key]
+        return s.format(**kw) if kw else s
 
     # ---- page helpers (main thread only) ----
     def doc(self):
@@ -259,7 +318,8 @@ class Bridge:
         chat.scrollTop = chat.scrollHeight
 
     # engineering insight lines Claude starts with a tag (PANEL_PROMPT.md) -> coloured cards in panel.html
-    INSIGHTS = {"ייצור": "mfg", "ייעול": "opt", "למה": "why", "שים לב": "warn", "הנחה": "asm"}
+    INSIGHTS = {"ייצור": "mfg", "ייעול": "opt", "למה": "why", "שים לב": "warn", "הנחה": "asm",
+                "Manufacturing": "mfg", "Optimise": "opt", "Why": "why", "Note": "warn", "Assumption": "asm"}
     UNITS = r"(?:mm³|mm²|mm|מ&quot;מ|ס&quot;מ|cm|m|kg|ק&quot;ג|gr|g|גרם|°|N·m|Nm|N|MPa|GPa|%|₪|\$|s|שנ'|min|דק')"
 
     @classmethod
@@ -289,7 +349,7 @@ class Bridge:
         """LEO-style message: avatar, name + time, soft bubble; `card` = buttons inside the bubble."""
         who_cls = who.split()[0]
         err = " err" if "err" in who else ""
-        name, av = ("Claude", "C") if who_cls == "ai" else ("אתה", "א")
+        name, av = ("Claude", "C") if who_cls == "ai" else (self.t("you"), self.t("you_av"))
         role = '<span class="role">ENG</span>' if who_cls == "ai" else ""
         tm = t or time.strftime("%H:%M")
         self.add(f'<div class="row {who_cls}"><div class="av">{av}</div><div class="body">'
@@ -313,7 +373,7 @@ class Bridge:
 
     def show_info(self):
         self.el("dir").innerText = self.set["save_dir"]
-        self.el("att").innerText = TXT["att"].format(n=", ".join(os.path.basename(a) for a in self.attach)) \
+        self.el("att").innerText = self.t("att", n=", ".join(os.path.basename(a) for a in self.attach)) \
             if self.attach else ""
 
     def save_settings(self):
@@ -329,7 +389,7 @@ class Bridge:
         try:
             doc = self.sw.ActiveDoc
             if doc is None:
-                self.sel_info, self.sel_txt = None, "אין מסמך פעיל"
+                self.sel_info, self.sel_txt = None, self.t("no_doc")
                 return
             sm = doc.SelectionManager
             n = sm.GetSelectedObjectCount2(-1)
@@ -340,15 +400,15 @@ class Bridge:
             self.sel_info = {"doc": title, "path": path, "n": n, "types": items}
             self.sel_txt = title + (" | " + ", ".join(items) if items else "")
         except Exception as e:
-            self.sel_info, self.sel_txt = {"error": repr(e)[:100]}, "SolidWorks לא זמין"
+            self.sel_info, self.sel_txt = {"error": repr(e)[:100]}, self.t("no_sw")
 
     # ---- actions ----
     def send(self, text, echo=True):
         if self.run_ and self.run_.is_alive():
-            self.sys(TXT["busy"])
+            self.sys(self.t("busy"))
             return
         if not self.exe:
-            self.bubble(TXT["no_cli"], "ai err")
+            self.bubble(self.t("no_cli"), "ai err")
             return
         self.last_request = text
         if echo:
@@ -356,7 +416,7 @@ class Bridge:
         self.chatlog("user", text)
         ctx = {"solidworks_rev": _get(self.sw, "RevisionNumber"), "require_rev": REQUIRE,
                "active_document": self.sel_info, "save_folder": self.set["save_dir"],
-               "attached_files": self.attach}
+               "attached_files": self.attach, "ui_language": self.lang}
         prompt = (text + "\n\n<swpanel_context>\n" + json.dumps(ctx, ensure_ascii=False, indent=1) +
                   "\n</swpanel_context>")
         self.attach = []
@@ -380,13 +440,13 @@ class Bridge:
         r = tk.Tk()
         r.withdraw()
         r.attributes("-topmost", True)
-        d = filedialog.askdirectory(parent=r, initialdir=self.set["save_dir"], title="תיקיית שמירה")
+        d = filedialog.askdirectory(parent=r, initialdir=self.set["save_dir"], title=self.t("pick_dir"))
         r.destroy()
         if d:
             self.set["save_dir"] = os.path.normpath(d)
             self.save_settings()
             self.show_info()
-            self.sys(TXT["dir"].format(d=self.set["save_dir"]))
+            self.sys(self.t("dir", d=self.set["save_dir"]))
 
     def pick_file(self):
         import tkinter as tk
@@ -394,7 +454,7 @@ class Bridge:
         r = tk.Tk()
         r.withdraw()
         r.attributes("-topmost", True)
-        fs = filedialog.askopenfilenames(parent=r, title="צרף קובץ")
+        fs = filedialog.askopenfilenames(parent=r, title=self.t("pick_file"))
         r.destroy()
         for f in fs or ():
             dst_dir = os.path.join(self.set["save_dir"], "attachments")
@@ -418,7 +478,7 @@ class Bridge:
                 subprocess.run(["taskkill", "/T", "/F", "/PID", str(self.worker.pid)], capture_output=True,
                                creationflags=subprocess.CREATE_NO_WINDOW)
                 self.worker = None
-            self.sys(TXT["stopped"])
+            self.sys(self.t("stopped"))
             self.chatlog("system", "stopped")
         elif flag == "new":
             if self.run_ and self.run_.is_alive():
@@ -426,15 +486,22 @@ class Bridge:
             self.set.pop("session", None)
             self.save_settings()
             self.el("chat").innerHTML = ""
-            self.sys(TXT["new"])
+            self.sys(self.t("new"))
         elif flag == "folder":
             self.pick_folder()
         elif flag == "file":
             self.pick_file()
         elif flag == "login":
             self.start_login()
+        elif flag.startswith("lang:") and flag[5:] in LANGS:
+            # the page already switched its own labels (panel.html setLang); new lines follow from here on
+            self.lang = self.set["lang"] = flag[5:]
+            self.save_settings()
+            self.show_info()
+            self.sel_txt = ""
+            self.sys(self.t("lang_set"))
         elif flag in ("approve", "reject"):
-            self.send(TXT["approved"] if flag == "approve" else TXT["rejected"])
+            self.send(self.t("approved") if flag == "approve" else self.t("rejected"))
 
     def handle_event(self, kind, p):
         if kind == "session" and p:
@@ -465,9 +532,10 @@ class Bridge:
                     self.bubble(txt or "error", "ai err")
             elif txt and txt.strip() != self.last_reply.strip():
                 self.bubble(txt.replace("[[APPROVE]]", "").strip())
-            self.sys(TXT["done"].format(s=p["s"]) + (f" | {p['denied']} denied" if p.get("denied") else ""))
+            self.sys(self.t("done", s=p["s"]) + (" | " + self.t("denied", n=p["denied"]) if p.get("denied") else ""))
             if "[[APPROVE]]" in (txt + self.last_reply):
-                self.bubble(TXT["approve_q"], card=self.card([("approve", "אשר", "ok"), ("reject", "דחה", "no")]))
+                self.bubble(self.t("approve_q"), card=self.card([("approve", self.t("approve_btn"), "ok"),
+                                                                   ("reject", self.t("reject_btn"), "no")]))
             log(f"result ok={p['ok']} s={p['s']:.1f} denied={p.get('denied')}")
             u = p.get("usage") or {}
             tf = os.path.join(PANEL, "tokens.csv")
@@ -500,12 +568,12 @@ class Bridge:
             return False
 
     def offer_login(self):
-        self.bubble(TXT["need_login"], card=self.card([("login", TXT["login_btn"], "ok")]))
+        self.bubble(self.t("need_login"), card=self.card([("login", self.t("login_btn"), "ok")]))
 
     def start_login(self):
         # a small console window: the browser opens for the Anthropic sign-in; the window closes by itself
         subprocess.Popen([self.exe, "auth", "login"], cwd=AGENT, creationflags=subprocess.CREATE_NEW_CONSOLE)
-        self.sys(TXT["login_wait"])
+        self.sys(self.t("login_wait"))
         self.login_poll = time.time()
 
     def replay(self):
@@ -524,13 +592,13 @@ class Bridge:
             self.bubble(d["text"].replace("[[APPROVE]]", "").strip(), "me" if d["who"] == "user" else "ai",
                         t=d.get("t", "")[11:16])
         if rows:
-            self.sys(TXT["resumed"])
+            self.sys(self.t("resumed"))
         return bool(rows)
 
     def loop(self):
         self.show_info()
         if not self.replay():
-            self.bubble(TXT["hello"])
+            self.bubble(self.t("hello"))
         self.login_poll = None
         if not self.logged_in():
             self.offer_login()
@@ -558,7 +626,7 @@ class Bridge:
                 self.login_poll = time.time()
                 if self.logged_in():
                     self.login_poll = None
-                    self.sys(TXT["login_ok"])
+                    self.sys(self.t("login_ok"))
             if time.time() - last_sel >= 1.5:
                 last_sel = time.time()
                 self.selection()
@@ -636,7 +704,9 @@ def run(clear_stop=True):
     t0 = time.time()
     tp = sw.CreateTaskpaneView2(icon, "Claude")
     ctl = tp.AddControl("Shell.Explorer.2", "")
-    ctl.Navigate2("file:///" + os.path.join(PANEL, "panel.html").replace("\\", "/"))
+    # the page reads its language from the #fragment (IE11 in edge mode has no execScript to push it later)
+    lang = ui_lang(read_json(SETTINGS, {}))
+    ctl.Navigate2("file:///" + os.path.join(PANEL, "panel.html").replace("\\", "/") + "#" + lang)
     while ctl.ReadyState != 4 and time.time() - t0 < 15:
         time.sleep(0.05)
     _get(tp, "ShowView")
