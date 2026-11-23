@@ -9,6 +9,9 @@
 ![Claude Code skill](https://img.shields.io/badge/Claude%20Code-skill-orange)
 ![Hebrew + English](https://img.shields.io/badge/language-Hebrew%20%7C%20English-blue)
 
+> **נבנה על ידי יניר בר חזן.** ניסית? אשמח לשמוע איך היה ומה לשפר: **[לינקדאין](https://www.linkedin.com/in/yanir-hazan)**.
+> **חברות:** רוצים להטמיע את זה אצלכם, עם מיומנות מותאמת לתבניות, לתקנים, ל-PDM ולספריית החלקים שלכם? **[דברו איתי בלינקדאין](https://www.linkedin.com/in/yanir-hazan)**.
+
 [English](README.md) · [מדריך למתחילים](docs/he/getting-started.md) · [איך זה עובד](docs/how-it-works.md) · [יומן עדכונים](docs/he/changelog/README.md) · [פרויקט לדוגמה](examples/desk-agent/README.md)
 
 <p align="center">
@@ -68,38 +71,38 @@ flowchart LR
 
 ה-API של סולידוורקס ענק ומלא מלכודות. המיומנות אורזת כל מלכודת ששברה בנייה אמיתית, יחד עם הפתרון, ספרייה שמטפלת בהן, ושיטת עבודה: לשאול קודם על מידות חסרות, להדפיס חלקי ניסיון לפני החלק הגדול, ולבדוק הכל.
 
-## התחלה מהירה
+## התחלה מהירה (5 דקות, בלי קוד)
 
-> מדריך מלא צעד אחרי צעד: **[docs/he/getting-started.md](docs/he/getting-started.md)**
+**צריך:** מחשב Windows עם סולידוורקס (2019 עד 2025, גם גרסת הסטודנט) וחשבון Claude. כל השאר מותקן לבד.
 
-1. **צריך:**
-   - מחשב Windows.
-   - סולידוורקס. נבדק על 2019 ו-2025, וגם גרסת הסטודנט עובדת.
-   - [פייתון 3.10 ומעלה](https://www.python.org/downloads/).
-   - [Claude Code](https://claude.com/claude-code).
-2. מתקינים את הגשר לסולידוורקס: `python -m pip install pywin32 numpy`
-3. מעתיקים את התיקייה [`skill/solidworks-api`](skill/solidworks-api) אל `%USERPROFILE%\.claude\skills\`.
-4. פותחים את סולידוורקס בצורה רגילה ומריצים את הבדיקה העצמית `smoke_test.py`. בסוף צריך להופיע `SMOKE TEST OK`.
-5. פותחים את Claude Code בתיקייה ריקה ומבקשים, למשל:
-   > *תתכנן לי בסולידוורקס תושבת לקיר לצינור של 40 מ"מ, שני ברגי M5, להדפסה ב-PLA בלי תמיכות.*
-
-## עדכון לגרסה חדשה
-
-לשונית Claude ממשיכה להריץ את הגרסה שאיתה היא עלתה, ולכן החלפת הקבצים לבד משאירה בסולידוורקס את הלשונית הישנה. סוגרים את סולידוורקס, ומריצים ב-PowerShell:
+1. לוחצים **מקש Windows + R**, מדביקים את השורה הזאת ולוחצים **Enter**:
 
 </div>
 
-```powershell
-irm https://raw.githubusercontent.com/YanirBarHazan/Claude-solidworks-pro/main/update.ps1 -OutFile $env:TEMP\swupd.ps1
-powershell -ExecutionPolicy Bypass -File $env:TEMP\swupd.ps1
+```
+powershell -ExecutionPolicy Bypass -NoExit -c "irm https://raw.githubusercontent.com/YanirBarHazan/Claude-solidworks-pro/main/install.ps1 | iex"
 ```
 
 <div dir="rtl">
 
-הסקריפט עוצר את הלשונית הישנה, מחליף את `%USERPROFILE%\.claude\skills\solidworks-api` בגרסה האחרונה (הישנה נשמרת ב-`~\.solidworks-api\backups\`, הצ'אטים וההגדרות נשארים) ומפעיל מחדש את הלשונית. פותחים שוב את סולידוורקס ומפעילים מחדש את Claude Code. מי שהעלה את המיומנות באפליקציית Claude מעלה שם גם את [`dist/solidworks-api.skill`](dist/solidworks-api.skill) החדש.
+   *או:* בעמוד הזה **Code ← Download ZIP**, מחלצים, ולוחצים פעמיים על **`install.cmd`**.
+
+2. מחכים ל-**Done**. ההתקנה מתקינה פייתון ו-Claude Code אם חסרים, את המיומנות ואת לשונית Claude.
+3. פותחים את סולידוורקס. הלשונית **Claude** מופיעה בחלונית המשימות מימין. בפעם הראשונה בלבד לוחצים **התחבר ל-Claude**.
+4. כותבים מה צריך, למשל:
+   > *תתכנן לי תושבת לקיר לצינור של 40 מ"מ, שני ברגי M5, להדפסה ב-PLA בלי תמיכות.*
+
+   קלוד שואל קודם כמה שאלות פתיחה קצרות: כמה לבדוק, האם להוציא דוח סקירה, ומה הוא הבין מהתכנון. ואז הוא בונה.
+
+אפשר לעבוד גם מ-Claude Code מחוץ לסולידוורקס. המיומנות נמצאת ב-`%USERPROFILE%\.claude\skills\solidworks-api`, ובשימוש הראשון קלוד בודק שהלשונית מותקנת ומתקן אם לא. מדריך מלא צעד אחרי צעד: [docs/he/getting-started.md](docs/he/getting-started.md).
+
+## עדכון לגרסה חדשה
+
+מריצים שוב את אותה שורה (או את `install.cmd`). היא עוצרת את הלשונית הישנה, מתקינה את הגרסה האחרונה (הישנה נשמרת ב-`~\.solidworks-api\backups\`, הצ'אטים וההגדרות נשארים) ומפעילה את הלשונית החדשה. אם סולידוורקס היה פתוח, פותחים אותו מחדש.
 
 ## עדכונים אחרונים
 
+- **23/11/2026, גרסה 2.3: התקנה בשורה אחת.** ההתקנה מסדרת פייתון, Claude Code, את המיומנות ואת לשונית Claude. הלשונית נפתחת עם סולידוורקס בכל פעם, וקלוד שואל קודם את שאלות הפתיחה. [פירוט](docs/he/changelog/2026-11-23-onboarding.md)
 - **18/11/2026, גרסה 2.2: קלוד בתוך סולידוורקס.** לשונית צ'אט בחלונית המשימות, מצב מהיר עם קריאות מהירות עד פי 100, ותכנון עמיד לשינויים: שינוי מפתח ובדיקה מלאה ב-5 שניות. [פירוט](docs/he/changelog/2026-11-18-v2.2.md)
 - **18/11/2026: שרטוט בקריאה אחת.** מבטים, מידות המודל, חתכים, BOM ובלונים, PDF ו-DXF, בדיקת פתיחה קלה ודוח סקירה בעמוד אחד. [פירוט](docs/he/changelog/2026-11-18-drawings.md)
 
@@ -108,5 +111,9 @@ powershell -ExecutionPolicy Bypass -File $env:TEMP\swupd.ps1
 ## רישיון
 
 [MIT](LICENSE). SolidWorks הוא סימן מסחרי של Dassault Systèmes. אין לפרויקט קשר ל-Dassault Systèmes או ל-Anthropic.
+
+## משוב וגרסאות מותאמות
+
+רעיונות, באגים, משהו שבנית איתו, או חברה שרוצה גרסה מותאמת לתקנים שלה: **[יניר בר חזן בלינקדאין](https://www.linkedin.com/in/yanir-hazan)**.
 
 </div>

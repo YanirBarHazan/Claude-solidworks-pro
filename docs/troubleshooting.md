@@ -4,6 +4,8 @@ Start here, and if your problem isn't listed, look in the [full pitfalls list](.
 
 | Symptom | Cause | Fix |
 |---|---|---|
+| No Claude tab in SolidWorks | The tab watcher isn't running (it is not started by copying the skill) or an old one is still running | Run the installer again (README, Quick start), or `python "%USERPROFILE%\.claude\skills\solidworks-api\scripts\install_panel.py"`. `--check` shows what is missing. Then restart SolidWorks. |
+| The tab is still the old version after an update | The running tab keeps the old code in memory | The installer stops it; restart SolidWorks. |
 | `Operation unavailable` when connecting | SolidWorks isn't running, runs as administrator, or isn't registered yet | Start SolidWorks normally from the Start menu, wait until it has fully opened, and try again. |
 | `'str' object is not callable` | Late binding: the type libraries weren't loaded | Use `sw_common.connect()`. Don't connect with `win32com.client.Dispatch` yourself. |
 | `centre point not found in SK_...` | A fresh SolidWorks session drew a rectangle without its centre point | Fixed in `swcad.py`, which adds the point itself. Run `smoke_test.py` on each new session. |

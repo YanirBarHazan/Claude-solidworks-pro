@@ -1,91 +1,61 @@
 # Getting started: from zero to your first part
 
-This guide assumes nothing. If you have never used Python or a terminal, follow it top to bottom; it takes about 20 minutes.
+No code, about 5 minutes. You need a Windows PC with SolidWorks and a Claude account; the installer adds everything else.
 
 ```mermaid
 flowchart TD
-    A[1. Check SolidWorks] --> B[2. Install Python]
-    B --> C[3. Install pywin32]
-    C --> D[4. Install Claude Code]
-    D --> E[5. Install the skill]
-    E --> F[6. Run the self test]
-    F -->|SMOKE TEST OK| G[7. Your first part]
-    F -->|error| T[Troubleshooting]
-    T --> F
+    A[1. SolidWorks, the normal way] --> B[2. Run the installer]
+    B -->|Done| C[3. Open SolidWorks: Claude tab]
+    C --> D[4. Your first part]
+    B -->|a line with !! or FAIL| T[Troubleshooting]
+    T --> B
 ```
 
-## 1. Check SolidWorks
+## 1. SolidWorks
 
-- Any recent SolidWorks on Windows. It was tested on **SolidWorks 2025**, including the Student Edition.
-- Start it **the normal way** from the Start menu. Don't use *Run as administrator*: an elevated SolidWorks is invisible to other programs, and the scripts can't reach it.
-- Several installs side by side (`SOLIDWORKS`, `SOLIDWORKS (2)`...) are fine. The scripts use the one that is running.
+- Any SolidWorks from 2019 to 2025 on Windows, Student Edition included.
+- Start it **the normal way** from the Start menu, never *Run as administrator*: an elevated SolidWorks is invisible to other programs.
+- Close it before installing (or reopen it afterwards).
 
-## 2. Install Python
+## 2. Run the installer
 
-1. Download Python 3.12 from [python.org/downloads](https://www.python.org/downloads/).
-2. In the installer, **tick "Add python.exe to PATH"** before clicking *Install*.
-3. Check it: open *Command Prompt* (Start → type `cmd`) and run
-   ```bash
-   python --version
-   ```
-   You should see `Python 3.12.x`.
-
-## 3. Install the bridge to SolidWorks
-
-In the same Command Prompt:
-
-```bash
-python -m pip install pywin32 numpy
-```
-
-`pywin32` lets Python talk to Windows programs (COM). `numpy` is optional and is used for area and volume checks of curved shapes.
-
-## 4. Install Claude Code
-
-Follow the official instructions at [claude.com/claude-code](https://claude.com/claude-code). Any form works: the desktop app (Code tab), the terminal CLI, or the VS Code extension. Sign in with your Claude account.
-
-## 5. Install the skill
-
-**Option A: copy the folder (Claude Code).**
-Copy the folder [`skill/solidworks-api`](../skill/solidworks-api) from this repository to:
+Press **Windows key + R**, paste this line, press **Enter**:
 
 ```
-C:\Users\<your name>\.claude\skills\solidworks-api
+powershell -ExecutionPolicy Bypass -NoExit -c "irm https://raw.githubusercontent.com/YanirBarHazan/Claude-solidworks-pro/main/install.ps1 | iex"
 ```
 
-If you use git:
+Or: on the GitHub page **Code → Download ZIP**, extract it, double-click **`install.cmd`**.
 
-```bash
-git clone https://github.com/YanirBarHazan/claude-solidworks
-xcopy /E /I claude-solidworks\skill\solidworks-api "%USERPROFILE%\.claude\skills\solidworks-api"
-```
+A blue window prints one line per step:
 
-**Option B: upload the packed file (Claude desktop app).**
-Open the skills section of the app's settings and upload [`dist/solidworks-api.skill`](../dist/solidworks-api.skill). The menu names change between versions, so search the settings for "Skills".
+| Line | What it did |
+|---|---|
+| `[OK] Python` | found Python, or installed Python 3.12 with winget |
+| `[OK] Claude Code` | found the Claude app's Claude Code, or installed Claude Code |
+| `[OK] skill 2.x -> ...` | installed the skill in `%USERPROFILE%\.claude\skills\solidworks-api` |
+| `OK pywin32`, `OK tab watcher running` | the Claude tab: starts now and at every Windows sign-in |
+| `Done.` | ready |
 
-Claude loads the skill by itself whenever you ask for SolidWorks work. You don't need a special command.
+Windows may show *"Windows protected your PC"* for `install.cmd`: click **More info → Run anyway**.
 
-## 6. Run the self test
+## 3. Open SolidWorks
 
-With SolidWorks open:
+The **Claude** tab appears in the Task Pane on the right, about 10 seconds after SolidWorks opens.
+First time only: click **connect to Claude** in the tab; a browser opens, approve, and the tab notices by itself.
+
+Optional self test (one minute, builds and checks a small part), with SolidWorks open:
 
 ```bash
 python "%USERPROFILE%\.claude\skills\solidworks-api\scripts\smoke_test.py"
 ```
 
-In about a minute it builds a small part, changes a dimension, reopens the file, exports an STL and checks all of it. The last line must be:
+It should end with `SMOKE TEST OK`. Anything else: [troubleshooting](troubleshooting.md).
 
-```
-SMOKE TEST OK
-```
+## 4. Your first part
 
-Anything else: see [Troubleshooting](troubleshooting.md). Run this test again whenever SolidWorks was restarted or updated. It catches session problems in one minute instead of in the middle of a long build.
-
-## 7. Your first part
-
-1. Make an empty folder for the project, for example `Documents\bracket`.
-2. Open Claude Code in that folder.
-3. Ask in plain words, with the measurements you know:
+1. Easiest: type in the Claude tab inside SolidWorks. (Or open Claude Code in an empty project folder, for example `Documents\bracket`.)
+2. Ask in plain words, with the measurements you know:
 
    > *Design a wall bracket in SolidWorks for a 40 mm pipe. Two M5 countersunk screws 60 mm apart. 3D printed in PLA on a Bambu A1, no supports.*
 
@@ -97,6 +67,8 @@ sequenceDiagram
     participant Claude
     participant SW as SolidWorks
     You->>Claude: request + measurements
+    Claude->>You: start questions (verification level, review report, its understanding)
+    You->>Claude: one-word answers are fine
     Claude->>You: questions about anything it can't derive
     You->>Claude: answers
     Claude->>You: plan + sketch (parts, joints, tolerances, print orientation)
@@ -122,3 +94,11 @@ The parts are saved in `parts\` inside your project folder, as normal `.sldprt` 
 - **Editing by hand is fine.** The scripts detect your edits and ask before touching the part. See [How it works → Hand edits](how-it-works.md#hand-edits).
 
 Next: [How it works](how-it-works.md) · [Workflow](workflow.md)
+
+## Updating
+
+Run the same line (or `install.cmd`) again. Restart SolidWorks if it was open.
+
+## Feedback
+
+How did it go? Ideas, problems, or a custom version for your company: **[Yanir Bar Hazan on LinkedIn](https://www.linkedin.com/in/yanir-hazan)**.

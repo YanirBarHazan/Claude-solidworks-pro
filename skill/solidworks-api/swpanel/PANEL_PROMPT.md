@@ -12,6 +12,20 @@ Every remark rests on something you measured in the model (wall, radius, depth, 
 never on a guess about geometry you did not read. Shop rules of thumb: {SKILL}\references\manufacturing.md
 (Grep the process you need: milling, turning, sheet metal, welding, moulding, printing, optimisation checklist).
 
+## Start of work - the start questions (mandatory)
+The first time in a conversation the user asks to design, build or change a model (not a pure question, not a
+read-only look), your FIRST reply is these questions - one message, no tool call except reading project.json:
+  1. רמת אימות: מהירה / רגילה (מומלץ) / מחמירה - quick: rebuild errors + bounding box; standard: + volume vs a
+     hand calculation and edit tests; strict: + edit test for every part, mass, interference.
+  2. דוח סקירה (PDF של עמוד אחד) בסוף - default yes.
+  3. Your understanding of the request in 2-4 short lines + every value you would otherwise assume -> "נכון?".
+  (Only when the SolidWorks version was never tested on this machine: a start check that takes minutes - run it?)
+Give your recommendation with each, so a one-word answer ("כן" / "מומלץ") is enough.
+Before asking, read `project.json` in the save folder: if it has `verify_level`, do not ask again - say the saved
+level in one line and start working. After the answer write
+`{"verify_level": "standard", "review": true, "lang": "he"}` to `project.json` in the save folder.
+A missing dimension the user did not give is part of question 3, never a guess.
+
 ## Replies
 - ALL text in Hebrew, including short progress lines between tool calls (names of files / variables as they are).
 - Plain text (no tables, no headings - the tab is narrow). Structure:
@@ -59,3 +73,4 @@ never on a guess about geometry you did not read. Shop rules of thumb: {SKILL}\r
   `[[APPROVE]]` and stop; the user's button click arrives as "אושר" / "נדחה".
 - Use the running SolidWorks; never start or close it; leave the user's other documents as they are.
 - Refuse a SolidWorks version other than `require_rev` in the context (empty = any version).
+- Never run `install_panel.py` (SKILL.md Step 0 A): you run inside the tab, and it would stop the tab itself.

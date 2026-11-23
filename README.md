@@ -7,6 +7,9 @@
 ![Claude Code skill](https://img.shields.io/badge/Claude%20Code-skill-orange)
 ![Hebrew + English](https://img.shields.io/badge/language-Hebrew%20%7C%20English-blue)
 
+> **Built by Yanir Bar Hazan.** Tried it? Tell me how it went, or what to improve: **[LinkedIn](https://www.linkedin.com/in/yanir-hazan)**.
+> **Companies:** want this inside your team, with a skill tuned to your templates, standards, PDM and parts library? **[Let's talk on LinkedIn](https://www.linkedin.com/in/yanir-hazan)**.
+
 [עברית](README.he.md) · [Getting started](docs/getting-started.md) · [How it works](docs/how-it-works.md) · [Changelog](docs/changelog/README.md) · [Example project](examples/desk-agent/README.md)
 
 <p align="center">
@@ -65,34 +68,27 @@ flowchart LR
 
 SolidWorks' API is huge and full of traps. The skill packages every trap that broke a real build, with its fix, a library that handles them, and a method: ask for missing measurements first, print test coupons before the big part, verify everything. [More →](docs/how-it-works.md)
 
-## Quick start
+## Quick start (5 minutes, no code)
 
-> Step-by-step guide for beginners: **[docs/getting-started.md](docs/getting-started.md)**
+**You need:** a Windows PC with SolidWorks (2019 to 2025, Student Edition works) and a Claude account. Everything else is installed for you.
 
-1. **You need:** Windows, SolidWorks (tested on 2019 and 2025, Student Edition works), [Python 3.10+](https://www.python.org/downloads/) and [Claude Code](https://claude.com/claude-code).
-2. Install the Python bridge:
-   ```bash
-   python -m pip install pywin32 numpy
+1. Press **Windows key + R**, paste this line, press **Enter**:
    ```
-3. Install the skill: copy [`skill/solidworks-api`](skill/solidworks-api) to `%USERPROFILE%\.claude\skills\`. Or, in the Claude desktop app, upload [`dist/solidworks-api.skill`](dist/solidworks-api.skill).
-4. Open SolidWorks normally (not *Run as administrator*) and run the self test:
-   ```bash
-   python "%USERPROFILE%\.claude\skills\solidworks-api\scripts\smoke_test.py"
+   powershell -ExecutionPolicy Bypass -NoExit -c "irm https://raw.githubusercontent.com/YanirBarHazan/Claude-solidworks-pro/main/install.ps1 | iex"
    ```
-   It should print `SMOKE TEST OK`.
-5. Open Claude Code in an empty folder and ask, for example:
-   > *Design a wall bracket in SolidWorks for a 40 mm pipe, two M5 screws, printable in PLA without supports.*
+   *Or:* **Code → Download ZIP** on this page, extract it, double-click **`install.cmd`**.
+2. Wait for **Done** (it installs Python and Claude Code if missing, the skill, and the Claude tab).
+3. Open SolidWorks. The **Claude** tab appears in the Task Pane on the right. First time only: click **connect to Claude**.
+4. Type what you need, for example:
+   > *Design a wall bracket for a 40 mm pipe, two M5 screws, printable in PLA without supports.*
+
+   Claude first asks a few short start questions (how much to verify, a review report, its understanding of your design). Then it builds.
+
+Using Claude Code outside SolidWorks works too: the skill is in `%USERPROFILE%\.claude\skills\solidworks-api`, and on first use Claude checks that the tab is installed and fixes it if not. Step by step with pictures: [docs/getting-started.md](docs/getting-started.md).
 
 ## Updating
 
-The Claude tab keeps running the version it started with, so replacing files alone leaves the old tab in SolidWorks. Close SolidWorks, then in PowerShell:
-
-```powershell
-irm https://raw.githubusercontent.com/YanirBarHazan/Claude-solidworks-pro/main/update.ps1 -OutFile $env:TEMP\swupd.ps1
-powershell -ExecutionPolicy Bypass -File $env:TEMP\swupd.ps1
-```
-
-It stops the old tab and worker, replaces `%USERPROFILE%\.claude\skills\solidworks-api` with the latest version (the old one goes to `~\.solidworks-api\backups\`; chats and settings are kept) and restarts the tab watcher. Open SolidWorks again and restart Claude Code. If you uploaded the skill in the Claude desktop app, also upload the new [`dist/solidworks-api.skill`](dist/solidworks-api.skill) there.
+Run the same line (or `install.cmd`) again. It stops the old tab, installs the latest version (the old one goes to `~\.solidworks-api\backups\`, chats and settings are kept) and starts the new tab. Restart SolidWorks if it was open.
 
 ## Repository layout
 
@@ -106,6 +102,7 @@ assets/                 images and the demo video
 
 ## Latest updates
 
+- **2026-11-23, v2.3: Install in one line.** The installer sets up Python, Claude Code, the skill and the Claude tab; the tab opens with SolidWorks every time; Claude asks the start questions first. [Details](docs/changelog/2026-11-23-onboarding.md)
 - **2026-11-18, v2.2: Claude inside SolidWorks.** A chat tab in the Task Pane, fast mode with COM calls up to 100x faster, and design for change: a span edit plus a full re-check in 5 s. [Details](docs/changelog/2026-11-18-v2.2.md)
 - **2026-11-18: Drawings in one call.** Views, model dimensions, sections, BOM and balloons, PDF / DXF, a light start check and a one-page review report. [Details](docs/changelog/2026-11-18-drawings.md)
 
@@ -114,3 +111,7 @@ assets/                 images and the demo video
 ## License
 
 [MIT](LICENSE). SolidWorks is a trademark of Dassault Systèmes. This project is not affiliated with Dassault Systèmes or Anthropic.
+
+## Feedback and custom versions
+
+Ideas, bugs, a story of what you built, or a company that wants this tuned to its own standards: **[Yanir Bar Hazan on LinkedIn](https://www.linkedin.com/in/yanir-hazan)**.
