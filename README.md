@@ -7,14 +7,16 @@
 ![Claude Code skill](https://img.shields.io/badge/Claude%20Code-skill-orange)
 ![Hebrew + English](https://img.shields.io/badge/language-Hebrew%20%7C%20English-blue)
 
-> **Built by Yanir Bar Hazan.** Tried it? Tell me how it went, or what to improve: **[LinkedIn](https://www.linkedin.com/in/yanir-hazan)**.
-> **Companies:** want this inside your team, with a skill tuned to your templates, standards, PDM and parts library? **[Let's talk on LinkedIn](https://www.linkedin.com/in/yanir-hazan)**.
-
 [עברית](README.he.md) · [Getting started](docs/getting-started.md) · [How it works](docs/how-it-works.md) · [Changelog](docs/changelog/README.md) · [Example project](examples/desk-agent/README.md)
 
 <p align="center">
   <a href="assets/demo/demo.mp4"><img src="assets/demo/demo.gif" width="720" alt="Claude building a parametric folding phone stand live in SolidWorks from the Claude tab: base, back plate, hinge pin, mated assembly, then a live change of angle, width and fillets"></a>
   <br><sub>Claude building a folding phone stand (3 parts + mated assembly) from the Claude tab inside SolidWorks, then changing it in place (thinking time cut, sped up). <a href="assets/demo/demo.mp4">Full video</a></sub>
+</p>
+
+<p align="center">
+  <a href="https://www.linkedin.com/in/yanir-hazan"><img src="https://img.shields.io/badge/Tried_it%3F_Tell_me_how_it_went-LinkedIn-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white" alt="Feedback on LinkedIn"></a>
+  <a href="https://www.linkedin.com/in/yanir-hazan"><img src="https://img.shields.io/badge/Custom_version_for_your_company-Let%27s_talk-0A66C2?style=for-the-badge&logo=linkedin&logoColor=white" alt="Custom version for your company"></a>
 </p>
 
 A **skill for [Claude Code](https://claude.com/claude-code)** that turns Claude into a SolidWorks engineer on your own PC. You say what you need in plain words, Hebrew or English. Claude writes and runs the code, builds real parametric parts and assemblies, **checks every dimension and every fit with numbers, and only then says it's done.** No copying error messages back and forth.
