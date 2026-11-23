@@ -1,6 +1,6 @@
 ---
 name: solidworks-api
-description: Drive SolidWorks directly from Python (pywin32 COM) as a senior CAD engineer would - real parametric parts and assemblies whose design intent lives in SolidWorks (dimensions linked to global variables, named reference geometry, mates, patterns, configurations by suppression), verified with numbers, updated in place instead of rebuilt, and safe to edit by hand afterwards. Use this whenever the user wants SolidWorks files (.sldprt/.sldasm/.slddrw) made, changed, checked or audited, wants Claude to "work in SolidWorks", design a part, bracket, enclosure, mechanism, frame or large repetitive structure, change values across a model, check fits/interference, make drawings, run a Motion study, or prepare parts for 3D printing - even if they don't mention the API, pywin32 or COM. Also use when a previous attempt to connect Claude to SolidWorks via plugins/macros failed, or to judge how editable an existing model is.
+description: Drive SolidWorks directly from Python (pywin32 COM) as a senior CAD engineer would - real parametric parts and assemblies whose design intent lives in SolidWorks (dimensions linked to global variables, named reference geometry, mates, patterns, configurations by suppression), verified with numbers, updated in place instead of rebuilt, and safe to edit by hand afterwards. Use this whenever the user wants SolidWorks files (.sldprt/.sldasm/.slddrw) made, changed, checked or audited, wants Claude to "work in SolidWorks", design a part, bracket, enclosure, mechanism, frame or large repetitive structure, change values across a model, check fits/interference, make drawings, run a Motion study, or prepare parts for 3D printing - even if they don't mention the API, pywin32 or COM. Also use when a previous attempt to connect Claude to SolidWorks via plugins/macros failed, or to judge how editable an existing model is. Every session starts with Step 0: make sure the Claude tab is installed in SolidWorks, then ask the start questions before any CAD.
 ---
 
 # SolidWorks through the API
@@ -8,6 +8,22 @@ description: Drive SolidWorks directly from Python (pywin32 COM) as a senior CAD
 Claude runs Python on the same Windows machine as SolidWorks, talks to the running instance over COM, builds the
 model and **verifies every step itself**. What makes it work is the method, not the API: a small library that
 absorbs the API's quirks, design intent decided before geometry, and never trusting what has not been measured.
+
+## Step 0 - before ANY SolidWorks work, every session (do not skip, even for a "quick" request)
+**A. The Claude tab** (skip when you ARE the tab: PANEL_PROMPT.md is your system prompt). Run `python scripts/install_panel.py --check` (seconds). If it prints any `FAIL` (tab not
+installed, older version, watcher not running), run `python scripts/install_panel.py` and tell the user in one
+line: "the Claude tab is ready - it appears in the SolidWorks Task Pane (right side) ~10 s after SolidWorks opens;
+first time: click 'connect to Claude' in the tab". If pywin32 or Claude Code is missing, say exactly what to install.
+**B. The start questions** (`references/dialogue.md` section 0) - your FIRST reply on a new design or a change to
+a model is these questions, in ONE message, in the user's language, each with your recommended default:
+  1. verification level - quick / standard (recommended) / strict;
+  2. review report (one-page PDF) at the end and at each gate - default yes;
+  3. start check - only when the SolidWorks version was never tested here (`preflight.py` runs minutes);
+  4. your restated understanding of the design in 3-6 lines + every value you would otherwise assume -> "is this
+     right?".
+Then the design-brief round (`dialogue.md` 1). Write the answers to `project.json`; when the project folder
+already has `project.json` with `verify_level`, do not ask again - state the saved answers in one line and go on.
+Exempt: a pure question about the open model, or reading / auditing without changing anything.
 
 ## Five rules (always)
 1. **Never rebuild an existing part to change it.** Open it and update it in place (global values, equations,
@@ -42,12 +58,12 @@ requests, runs and Claude Code conversations on one timeline, and warnings where
 the warnings before answering a complaint; a warning that repeats is a fix to this skill.
 
 ## Workflow
-1. **Setup** (once per machine, `references/setup.md`): SolidWorks open, `pip install pywin32`, copy `scripts/`
+1. **Setup** (once per machine, `references/setup.md`): Step 0 A installs the tab; SolidWorks open, `pip install pywin32`, copy `scripts/`
    into the project, `python scripts/preflight.py` (seconds, no documents; on a SolidWorks version never tested
    it runs the full capability suite once and writes a report - say so to the user first: it takes minutes).
    Set `SW_REQUIRE_REV` when the files must open in an older SolidWorks (a newer save can never be reopened
    by an older version).
-2. **Dialogue** (`references/dialogue.md`): **at the start of EVERY project ask the start questions (section 0)** -
+2. **Dialogue** (`references/dialogue.md`): **the start questions of Step 0 B come first, every project** -
    verification level, start check, review report, and your restated understanding of the design - then one
    design-brief round, then a one-page project card (`templates/PROJECT_CARD.md`) approved before building.
    Gates: one sample part -> one sub-assembly -> the whole model, each with a review PDF (`scripts/review.py`).
@@ -91,6 +107,8 @@ the warnings before answering a complaint; a warning that repeats is a fix to th
   and assembly coordinates, features, equations, size), `set NAME=VALUE [--selected]` (in place), `fillet`, `save`,
   `run script.py` - ~0.2 s each instead of a 2 s start-up per script (`references/panel.md`).
 - `swpanel_taskpane.py` - the Claude chat tab inside the SolidWorks Task Pane (`references/panel.md`).
+  `install_panel.py` - installs / updates / checks the tab (Step 0 A): stable copy in `~/.solidworks-api/app`,
+  starts at Windows sign-in, replaces an old tab still running.
 - `swcad.py` - `PartBuilder`: planes, sketches, extrude / cut, Hole Wizard, feature pattern / mirror, material and
   mass, linked equations and properties, update mode, checks, verified save.
 - `paramfile.py` - the parameter text file (`NAME = value ; note`, groups, value sets, in-place rewrite).

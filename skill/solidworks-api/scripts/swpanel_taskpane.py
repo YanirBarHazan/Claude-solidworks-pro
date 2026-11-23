@@ -89,7 +89,8 @@ def find_claude():
             v = os.path.basename(os.path.dirname(os.path.dirname(p)))
             return [int(x) if x.isdigit() else 0 for x in v.split(".")]
         return max(hits, key=lambda p: (ver(p), os.path.getmtime(p)))
-    return shutil.which("claude")
+    local = os.path.join(os.path.expanduser("~"), ".local", "bin", "claude.exe")   # native Claude Code installer
+    return shutil.which("claude") or (local if os.path.exists(local) else None)
 
 
 def icon_bmp(path):
