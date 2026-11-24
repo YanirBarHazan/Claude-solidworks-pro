@@ -29,6 +29,13 @@ A **skill for [Claude Code](https://claude.com/claude-code)** that turns Claude 
 - **Built for real, big assemblies.** Tested on assemblies of more than 2,000 components on SolidWorks 2019: a design change plus a full re-check in minutes, not hours. COM calls up to 100x faster than plain scripting.
 - **From idea to factory floor.** Production drawings with BOM and balloons, PDF / DXF, print-ready STL and sliced Bambu Studio projects.
 
+## Claude inside SolidWorks
+
+<p align="center">
+  <img src="assets/images/solidworks-panel.png" width="820" alt="The Claude tab docked in the SolidWorks Task Pane next to a parametric flange: plan, approve card, and a verified result">
+  <br><sub>The Claude tab in the Task Pane: describe, approve, and get a verified result. Hebrew or English. (Panel shown with a sample conversation.)</sub>
+</p>
+
 ## What it can do
 
 | | |
