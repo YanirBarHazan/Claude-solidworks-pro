@@ -1,0 +1,22 @@
+name: tests
+
+# Pure-Python tests (no SolidWorks needed): parameter file, hand-edit detection, pattern planning, review log,
+# and the Claude tab's text in both languages. SolidWorks itself is tested on a real machine (scripts/preflight.py).
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install pytest
+      - run: python -m pytest tests -q
