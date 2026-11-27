@@ -40,6 +40,7 @@ A **skill for [Claude Code](https://claude.com/claude-code)** that turns Claude 
 | **Engineering checks** | Snap-fit strain, detent torque, tipping stability, tolerance stacks. |
 | **Drawings** | Standard views and scale, model dimensions, section views, tolerances, BOM, ISO or company title block. |
 | **3D printing** | Print orientation, overhang and support analysis, sliced projects with time and filament per plate. |
+| **From a 2D drawing** | Reads a DXF / DWG a supplier sends: views, closed outlines, printed dimensions, title block, bend notes. Says whether the drawing alone fixes the part, builds flat parts from it and proves volume and size against the drawing. Bent sheet metal is next. |
 
 ## Built with it: the desk agent
 
@@ -135,6 +136,30 @@ powershell -ExecutionPolicy Bypass -NoExit -c "$env:SW_INSTALL_REF='v2.4.0'; irm
 Or download `install.ps1` from the [releases page](https://github.com/YanirBarHazan/Claude-solidworks-pro/releases),
 read it, and run `powershell -ExecutionPolicy Bypass -File install.ps1 -Ref v2.4.0`. `-Ref` takes a release tag,
 a branch or a commit.
+
+## Other AI clients (MCP)
+
+The same SolidWorks connection works from any MCP client (Claude Desktop, Cursor, other agents), with the same
+commands, checks and engineering method. On the PC with SolidWorks:
+
+```
+python -m pip install --user mcp ezdxf
+```
+
+Then add the server to the client's MCP settings (Claude Desktop: `claude_desktop_config.json`):
+
+```json
+"solidworks": {
+  "command": "python",
+  "args": ["C:\\Users\\<you>\\.claude\\skills\\solidworks-api\\mcp\\server.py"]
+}
+```
+
+Tools: `model_card`, `model_info`, `set_globals`, `add_fillet`, `save_document`, `run_script`,
+`solidworks_status`, `read_drawing` (a DXF in, a verdict out, no SolidWorks needed) and `engineering_guide`
+(the method itself, for a model that has never seen this skill). The commands and their arguments are one
+contract ([`contracts/worker_commands.json`](skill/solidworks-api/contracts/worker_commands.json)) shared by the
+tab, the command line and the MCP server; a test fails if any of them drifts.
 
 ## Updating
 

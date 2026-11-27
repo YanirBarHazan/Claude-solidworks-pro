@@ -2,13 +2,8 @@
 connection and the skill's modules loaded, so each command costs milliseconds instead of ~2 s of start-up.
 Started by swpanel_taskpane.py; commands come from swx.py over 127.0.0.1 (token in the panel folder).
 
-Commands
-    info                         active document, selection with geometry (mm), feature tree, equations, size
-    set NAME=VALUE ... [--selected]
-                                 change global variables in place (as in the Equations dialog), rebuild, measure;
-                                 --selected: in the part / sub-assembly of the selected component
-    save                         save the active document (Save3, silent)
-    run FILE.py                  run a script in the warm namespace: sw, doc, c (sw_common), swcad, PartBuilder, T
+Commands: contracts/worker_commands.json (ping, card, info, set, fillet, save, run). The dispatch below accepts
+only those; tests/test_contracts.py keeps this file, swx.py, the MCP server and the tab's prompt in step with it.
 """
 import contextlib
 import io
@@ -29,6 +24,7 @@ os.environ.setdefault("SW_REQUIRE_REV", "")   # any version unless the user lock
 os.environ["SW_DAYLOG_MODE"] = "worker"   # day log: one line per changing command (serve), not per process
 os.environ["SW_FAST"] = "0"   # long-lived: fast mode only around each command (serve), never for the whole session
 import pythoncom  # noqa: E402
+import contract  # noqa: E402
 import daylog  # noqa: E402
 import sw_common as c  # noqa: E402
 import swcad  # noqa: E402
@@ -38,7 +34,8 @@ MM = 1000.0
 SEL = {1: "edge", 2: "face", 3: "vertex", 4: "plane", 5: "axis", 9: "sketch segment", 11: "sketch point",
        20: "component", 22: "feature", 25: "dimension", 31: "sketch"}
 DOC_TYPES = {1: "part", 2: "assembly", 3: "drawing"}
-LOGGED = {"set", "save", "fillet", "run"}     # commands that change something go to the day log (read-only ones not)
+# commands that change something go to the day log (read-only ones not); both come from the contract
+LOGGED = {n for n, spec in contract.COMMANDS.items() if spec["changes_model"]}
 
 
 def r3(v, k=MM):
@@ -517,6 +514,7 @@ def serve():
                 if req.get("token") != token:
                     raise PermissionError("bad token")
                 cmd, args = req["cmd"], req.get("args", [])
+                contract.check(cmd, args)        # only the contract's commands: never an arbitrary method
                 if cmd == "ping":
                     res, ok = {"rev": w.sw.RevisionNumber()}, True
                 else:

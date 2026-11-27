@@ -914,6 +914,38 @@ class _Sketch:
                 raise RuntimeError(f"line {i} failed in {self.name}")
         sm.AddToDB = False
 
+    def profile(self, segments, fix=True):
+        """Closed profile of lines and arcs from a drawing (drawing_read wire form: {"kind": "line", "a", "b"} /
+        {"kind": "arc", "a", "b", "c", "ccw"}, mm). The drawing is the source of this geometry, so with fix=True
+        every entity is fixed - the sketch is fully defined and values the user changes live in the globals
+        (thickness, hole diameters), not in an imported outline. UNTESTED on SolidWorks until the live check."""
+        self.calls.append(["profile", len(segments), round(sum(abs(s["a"][0]) + abs(s["a"][1]) for s in segments), 4)])
+        if self.dry:
+            return []
+        sm = self.pb.doc.SketchManager
+        sm.AddToDB = True          # direct mode merges coincident endpoints into a closed loop
+        made = []
+        for i, s in enumerate(segments):
+            (x1, y1), (x2, y2) = s["a"], s["b"]
+            if s["kind"] == "arc":
+                cx, cy = s["c"]
+                seg = sm.CreateArc(cx * MM, cy * MM, 0, x1 * MM, y1 * MM, 0, x2 * MM, y2 * MM, 0,
+                                   1 if s.get("ccw", True) else -1)       # +1 counter-clockwise, -1 clockwise
+            else:
+                seg = sm.CreateLine(x1 * MM, y1 * MM, 0, x2 * MM, y2 * MM, 0)
+            if seg is None:
+                raise RuntimeError(f"profile segment {i} ({s['kind']}) failed in {self.name}")
+            made.append(seg)
+        sm.AddToDB = False
+        if fix:
+            doc = self.pb.doc
+            doc.ClearSelection2(True)
+            for i, seg in enumerate(made):
+                T(seg, "ISketchSegment").Select4(i > 0, None)
+            doc.SketchAddConstraints("sgFIXED")
+            doc.ClearSelection2(True)
+        return made
+
     def circle(self, cx, cy, d):
         self.calls.append(["circle", str(cx), str(cy), str(d)])
         if self.dry:

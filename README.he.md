@@ -40,6 +40,7 @@
 - **בדיקות הנדסיות:** מאמץ בתפסנים, מומנט נעילה, יציבות נגד נפילה, שרשרת סבולות.
 - **שרטוטים:** מבטים בקנה מידה תקני, מידות המודל, חתכים, טולרנסים, BOM, כותרת ISO או של החברה.
 - **הדפסת תלת-ממד:** כיוון הדפסה, בדיקת תמיכות, ופרויקט חתוך עם זמן וחומר לכל משטח.
+- **משרטוט דו-ממדי:** קורא DXF או DWG שספק שולח: מבטים, קווי מתאר סגורים, מידות כפי שהודפסו, טבלת כותרת והערות כיפוף. אומר אם השרטוט לבדו קובע את החלק, בונה ממנו חלקים שטוחים ומוכיח נפח ומידות מול השרטוט. פח מכופף הוא השלב הבא.
 
 ## נבנה איתו: המכשיר השולחני
 
@@ -147,6 +148,38 @@ powershell -ExecutionPolicy Bypass -NoExit -c "$env:SW_INSTALL_REF='v2.4.0'; irm
 או מורידים את `install.ps1` מ[עמוד הגרסאות](https://github.com/YanirBarHazan/Claude-solidworks-pro/releases),
 קוראים אותו ומריצים `powershell -ExecutionPolicy Bypass -File install.ps1 -Ref v2.4.0`. ‏`-Ref` מקבל תגית גרסה,
 ענף או commit.
+
+## לקוחות AI אחרים (MCP)
+
+אותו חיבור לסולידוורקס עובד מכל לקוח MCP (Claude Desktop, ‏Cursor, סוכנים אחרים), עם אותן פקודות, אותן
+בדיקות ואותה שיטת עבודה הנדסית. במחשב עם הסוליד:
+
+</div>
+
+```
+python -m pip install --user mcp ezdxf
+```
+
+<div dir="rtl">
+
+ואז מוסיפים את השרת להגדרות ה-MCP של הלקוח (ב-Claude Desktop: `claude_desktop_config.json`):
+
+</div>
+
+```json
+"solidworks": {
+  "command": "python",
+  "args": ["C:\\Users\\<you>\\.claude\\skills\\solidworks-api\\mcp\\server.py"]
+}
+```
+
+<div dir="rtl">
+
+הכלים: `model_card`, ‏`model_info`, ‏`set_globals`, ‏`add_fillet`, ‏`save_document`, ‏`run_script`,
+‏`solidworks_status`, ‏`read_drawing` (נכנס DXF, יוצאת הכרעה, בלי סולידוורקס), ו-`engineering_guide` (שיטת
+העבודה עצמה, למודל שמעולם לא ראה את המיומנות). הפקודות והארגומנטים שלהן הם חוזה אחד
+([`contracts/worker_commands.json`](skill/solidworks-api/contracts/worker_commands.json)), משותף ללשונית, לשורת
+הפקודה ולשרת ה-MCP; בדיקה נכשלת אם אחד מהם סוטה ממנו.
 
 ## עדכון לגרסה חדשה
 

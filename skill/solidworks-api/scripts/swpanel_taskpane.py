@@ -24,6 +24,9 @@ import sys
 import threading
 import time
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import panel_steps  # noqa: E402
+
 PANEL = os.path.join(os.path.expanduser("~"), ".solidworks-api", "swpanel")
 AGENT = os.path.join(PANEL, "agent")              # fixed cwd: Claude Code stores conversations per folder
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -64,6 +67,19 @@ TXT = {                      # every line the tab itself shows; panel.html holds
         "pick_dir": "תיקיית שמירה",
         "pick_file": "צרף קובץ",
         "lang_set": "עברית",
+        "trace": "{n} שלבים · {s:.0f} שנ'",
+        "trace_tokens": " · {k:.0f}K טוקנים",
+        "more": "+{n} שלבים קודמים",
+        "plan_head": "תוכנית",
+        "plan_all_btn": "בצע הכל",
+        "plan_one_btn": "שלב אחד ועצור",
+        "plan_edit_btn": "שנה",
+        "plan_all_msg": "אושר - בצע את כל התוכנית.",
+        "plan_one_msg": "בצע רק את השלב הבא ועצור לבדיקה.",
+        "next_btn": "המשך",
+        "halt_btn": "עצור כאן",
+        "next_msg": "המשך לשלב הבא.",
+        "halt_msg": "עצור כאן: סכם מה נעשה, מה נבדק ומה נשאר.",
     },
     "en": {
         "hello": "Hi. Select something in SolidWorks and tell me what to do.",
@@ -92,6 +108,19 @@ TXT = {                      # every line the tab itself shows; panel.html holds
         "pick_dir": "Save folder",
         "pick_file": "Attach file",
         "lang_set": "English",
+        "trace": "{n} steps · {s:.0f} s",
+        "trace_tokens": " · {k:.0f}K tokens",
+        "more": "+{n} earlier steps",
+        "plan_head": "PLAN",
+        "plan_all_btn": "Do it all",
+        "plan_one_btn": "One step, then stop",
+        "plan_edit_btn": "Change",
+        "plan_all_msg": "Approved - carry out the whole plan.",
+        "plan_one_msg": "Do only the next step, then stop for a check.",
+        "next_btn": "Continue",
+        "halt_btn": "Stop here",
+        "next_msg": "Continue with the next step.",
+        "halt_msg": "Stop here: sum up what was done, what was checked and what is left.",
     },
 }
 LANGS = tuple(TXT)
@@ -228,9 +257,14 @@ class ClaudeSession:
                         if blk.get("type") == "text" and blk.get("text", "").strip():
                             self.out.put(("text", blk["text"].strip()))
                         elif blk.get("type") == "tool_use":
-                            inp = blk.get("input", {})
-                            what = inp.get("description") or inp.get("command") or inp.get("file_path") or                                 inp.get("skill") or inp.get("pattern") or ""
-                            self.out.put(("step", f"{blk.get('name')}: {str(what)[:140]}"))
+                            self.out.put(("step", {"id": blk.get("id"), "tool": blk.get("name"),
+                                                   "input": blk.get("input", {})}))
+                elif t == "user":                       # tool results: mark the step done / failed
+                    content = ev.get("message", {}).get("content", [])
+                    for blk in content if isinstance(content, list) else []:
+                        if blk.get("type") == "tool_result":
+                            self.out.put(("step_done", {"id": blk.get("tool_use_id"),
+                                                        "error": bool(blk.get("is_error"))}))
                 elif t == "result":
                     self.out.put(("result", {"ok": not ev.get("is_error"), "text": ev.get("result", ""),
                                              "session": ev.get("session_id"), "s": time.time() - self.t0,
@@ -294,6 +328,7 @@ class Bridge:
         os.makedirs(self.set["save_dir"], exist_ok=True)
         self.exe = find_claude()
         self.pending_text = ""
+        self.steps = []                 # this turn: [{"id", "label", "state": now / done / fail, "raw"}]
         self.last_request = ""
         self.last_reply = ""
 
@@ -350,10 +385,10 @@ class Bridge:
         who_cls = who.split()[0]
         err = " err" if "err" in who else ""
         name, av = ("Claude", "C") if who_cls == "ai" else (self.t("you"), self.t("you_av"))
-        role = '<span class="role">ENG</span>' if who_cls == "ai" else ""
+        role = ""
         tm = t or time.strftime("%H:%M")
         self.add(f'<div class="row {who_cls}"><div class="av">{av}</div><div class="body">'
-                 f'<div class="who">{name}{role}<span class="tm">{esc(tm)}</span></div>'
+                 f'<div class="who"><span class="nm">{esc(name)}</span>{role} <span class="tm">{esc(tm)}</span></div>'
                  f'<div class="msg{err}">{self.rich(text)}{card}</div></div></div>')
 
     def card(self, buttons):
@@ -369,7 +404,44 @@ class Bridge:
         self.el("stop").style.display = "inline-block" if on else "none"
         self.el("send").style.display = "none" if on else "inline-block"
         if not on:
-            self.el("step").innerText = ""
+            self.el("steps").innerHTML = ""
+
+    def show_steps(self):
+        """The live list under "Working...": the last 5 steps, each one line in plain words."""
+        icon = {"now": '<span class="spin"></span>', "done": "&#10003;", "fail": "&#10007;"}
+        rows = self.steps[-5:]
+        html_ = ""
+        if len(self.steps) > 5:
+            html_ += f'<div class="st more">{esc(self.t("more", n=len(self.steps) - 5))}</div>'
+        for st in rows:
+            html_ += (f'<div class="st {st["state"]}"><span class="ico">{icon[st["state"]]}</span>'
+                      f'{esc(st["label"])}</div>')
+        self.el("steps").innerHTML = html_
+
+    def trace(self, p):
+        """Under the reply: "5 steps · 14 s · 12K tokens"; a click opens the steps."""
+        u = p.get("usage") or {}
+        k = (u.get("input_tokens", 0) + u.get("output_tokens", 0) + u.get("cache_creation_input_tokens", 0)) / 1000
+        line = self.t("trace", n=len(self.steps), s=p["s"]) + (self.t("trace_tokens", k=k) if k >= 1 else "")
+        if p.get("denied"):
+            line += " · " + self.t("denied", n=p["denied"])
+        mark = {"done": "&#10003;", "fail": "&#10007;", "now": "&#10003;"}
+        items = "".join(f'<div class="st {"fail" if s["state"] == "fail" else "done"}"><span class="ico">'
+                        f'{mark[s["state"]]}</span>{esc(s["label"])}</div>' for s in self.steps)
+        self.add(f'<div class="trace" onclick="tog(this)">{esc(line)}</div>'
+                 f'<div class="trace-list" style="display:none">{items}</div>')
+        self.steps = []
+
+    def plan_card(self, plan, buttons=True):
+        import re
+        rows = "".join(f'<div class="pi"><span class="pn">{n}.</span> '
+                       f'{re.sub(r"^<div>|</div>$", "", self.rich(t))}</div>' for n, t in plan)
+        box = f'<div class="plan"><div class="ph">{esc(self.t("plan_head"))}</div>{rows}</div>'
+        if not buttons:
+            return box
+        return (box + self.card([("plan_all", self.t("plan_all_btn"), "ok"),
+                             ("plan_one", self.t("plan_one_btn"), "no"),
+                             ("plan_edit", self.t("plan_edit_btn"), "ghost")]))
 
     def show_info(self):
         self.el("dir").innerText = self.set["save_dir"]
@@ -398,7 +470,7 @@ class Bridge:
             title = _get(doc, "GetTitle")
             path = _get(doc, "GetPathName")
             self.sel_info = {"doc": title, "path": path, "n": n, "types": items}
-            self.sel_txt = title + (" | " + ", ".join(items) if items else "")
+            self.sel_txt = panel_steps.selection_text(title, items, self.lang)
         except Exception as e:
             self.sel_info, self.sel_txt = {"error": repr(e)[:100]}, self.t("no_sw")
 
@@ -502,6 +574,11 @@ class Bridge:
             self.sys(self.t("lang_set"))
         elif flag in ("approve", "reject"):
             self.send(self.t("approved") if flag == "approve" else self.t("rejected"))
+        elif flag in ("plan_all", "plan_one", "next", "halt"):
+            self.send(self.t({"plan_all": "plan_all_msg", "plan_one": "plan_one_msg", "next": "next_msg",
+                              "halt": "halt_msg"}[flag]))
+        elif flag == "plan_edit":
+            self.el("req").focus()
 
     def handle_event(self, kind, p):
         if kind == "session" and p:
@@ -509,13 +586,23 @@ class Bridge:
         elif kind == "text":
             if p.startswith("Not logged in"):
                 return
-            show = p.replace("[[APPROVE]]", "").strip()
-            if show:
-                self.bubble(show)
+            show, plan, _marker = panel_steps.parse_reply(p)
+            if show or plan:
+                self.bubble(show, card=self.plan_card(plan) if plan else "")
             self.last_reply = p
             self.chatlog("claude", p)
         elif kind == "step":
-            self.el("step").innerText = p          # one live line under "Claude is working", not a list
+            for st in self.steps:
+                if st["state"] == "now":
+                    st["state"] = "done"
+            self.steps.append({"id": p.get("id"), "state": "now",
+                               "label": panel_steps.step_label(p.get("tool"), p.get("input"), self.lang)})
+            self.show_steps()
+        elif kind == "step_done":
+            for st in self.steps:
+                if st["id"] == p.get("id"):
+                    st["state"] = "fail" if p.get("error") else "done"
+            self.show_steps()
         elif kind == "result":
             txt = p.get("text") or ""
             sid = p.get("session") or getattr(self, "new_session", None)
@@ -531,11 +618,17 @@ class Bridge:
                 else:
                     self.bubble(txt or "error", "ai err")
             elif txt and txt.strip() != self.last_reply.strip():
-                self.bubble(txt.replace("[[APPROVE]]", "").strip())
-            self.sys(self.t("done", s=p["s"]) + (" | " + self.t("denied", n=p["denied"]) if p.get("denied") else ""))
-            if "[[APPROVE]]" in (txt + self.last_reply):
+                show, plan, _m = panel_steps.parse_reply(txt)
+                if show or plan:
+                    self.bubble(show, card=self.plan_card(plan) if plan else "")
+            self.trace(p)
+            marker = panel_steps.parse_reply(txt + "\n" + self.last_reply)[2]
+            if marker == "approve":
                 self.bubble(self.t("approve_q"), card=self.card([("approve", self.t("approve_btn"), "ok"),
                                                                    ("reject", self.t("reject_btn"), "no")]))
+            elif marker == "next":
+                self.bubble("", card=self.card([("next", self.t("next_btn"), "ok"),
+                                                ("halt", self.t("halt_btn"), "no")]))
             log(f"result ok={p['ok']} s={p['s']:.1f} denied={p.get('denied')}")
             u = p.get("usage") or {}
             tf = os.path.join(PANEL, "tokens.csv")
@@ -589,8 +682,9 @@ class Bridge:
         except (OSError, ValueError):
             return False
         for d in rows[-40:]:
-            self.bubble(d["text"].replace("[[APPROVE]]", "").strip(), "me" if d["who"] == "user" else "ai",
-                        t=d.get("t", "")[11:16])
+            show, plan, _m = panel_steps.parse_reply(d["text"])
+            self.bubble(show, "me" if d["who"] == "user" else "ai", t=d.get("t", "")[11:16],
+                        card=self.plan_card(plan, buttons=False) if plan else "")
         if rows:
             self.sys(self.t("resumed"))
         return bool(rows)
@@ -686,9 +780,11 @@ def run(clear_stop=True):
     if clear_stop and os.path.exists(STOP):
         os.remove(STOP)
     shutil.copyfile(os.path.join(SRC, "html", "panel.html"), os.path.join(PANEL, "panel.html"))
-    shutil.copyfile(os.path.join(HERE, "swx.py"), os.path.join(PANEL, "swx.py"))
+    old_swx = os.path.join(PANEL, "swx.py")     # before v2.5 a copy lived here; swx.py now needs contract.py beside it
+    if os.path.exists(old_swx):
+        os.remove(old_swx)
     with open(os.path.join(SRC, "PANEL_PROMPT.md"), encoding="utf-8") as f:
-        prompt = f.read().replace("{SWX}", os.path.join(PANEL, "swx.py")).replace("{SCRIPTS}", HERE) \
+        prompt = f.read().replace("{SWX}", os.path.join(HERE, "swx.py")).replace("{SCRIPTS}", HERE) \
             .replace("{SKILL}", os.path.dirname(HERE))
     with open(os.path.join(AGENT, "PANEL_PROMPT.md"), "w", encoding="utf-8") as f:
         f.write(prompt)

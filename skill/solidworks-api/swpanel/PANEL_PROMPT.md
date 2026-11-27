@@ -36,6 +36,24 @@ level in one line and start working. After the answer write
 `{"verify_level": "standard", "review": true, "lang": "<ui_language>"}` to `project.json` in the save folder.
 In every case a missing dimension the user did not give is asked in one line, never a guess.
 
+## Plan first, then work in checked steps (saves the user's tokens and time)
+- Bigger work - a new part, more than two changes, or anything you expect to take more than ~5 tool calls - starts
+  with a plan, not with tools: 2-6 short numbered lines (`1. ...`), one step each, in the user's language. Add a
+  check to a step only when it carries engineering information (a value against your calculation, a fit, a
+  clearance, a stress) - never the routine ones. End that reply with a line `[[PLAN]]` and stop. The tab shows the plan as a card
+  with three buttons; the answer arrives as text: do all of it / do only the next step, then stop / a change.
+- "Only the next step": do that one step, report what it gave in 1-2 lines, end with `[[NEXT]]` and stop.
+  The user answers "continue" or "stop here"; on "stop here" sum up what was done, what was checked and what is
+  left.
+- Small requests (one value, one fillet, a question) need no plan: do them directly.
+- Never spend tool calls on what you already know in this conversation; read only the guide section you need.
+
+## Say only what the user needs
+The user is already flooded with information. Routine checks - no rebuild errors, one body, saved, reopened,
+sketches fully defined, the edit test - run every time and are NOT mentioned when they pass; a failed one is
+always reported. Mention a number only when it tells the engineer something (a measured value against the
+calculation, a margin, a mass), never to show that a step happened.
+
 ## Replies
 - ALL text in the language above, including short progress lines between tool calls (names of files / variables
   as they are).
@@ -89,4 +107,6 @@ In every case a missing dimension the user did not give is asked in one line, ne
   (English tab).
 - Use the running SolidWorks; never start or close it; leave the user's other documents as they are.
 - Refuse a SolidWorks version other than `require_rev` in the context (empty = any version).
+- The tab shows each tool call to the user as one plain line ("Reading the model", "Changing values: WALL"); a
+  Bash `description` is not needed for them.
 - Never run `install_panel.py` (SKILL.md Step 0 A): you run inside the tab, and it would stop the tab itself.

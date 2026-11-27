@@ -1,9 +1,13 @@
 """Client of the warm SolidWorks worker (swpanel_worker.py). Standard library only: starts in ~50 ms.
 
-    python swx.py info
+    python swx.py card [--full]
+    python swx.py info [--full]
     python swx.py set BOX_H=10 HOLE_D=12 [--selected]
+    python swx.py fillet 2 [--edges selected|x|y|z] [--name N] [--var V]
     python swx.py save
     python swx.py run my_script.py
+    python swx.py ping
+The commands and their arguments: contracts/worker_commands.json (checked here before sending).
 Prints JSON; exit code 1 when the command failed.
 """
 import json
@@ -11,10 +15,17 @@ import os
 import socket
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import contract  # noqa: E402
+
 PANEL = os.path.join(os.path.expanduser("~"), ".solidworks-api", "swpanel")
 
 
 def call(cmd, args):
+    try:
+        contract.check(cmd, args)
+    except contract.ContractError as e:
+        return {"ok": False, "result": str(e)}
     try:
         with open(os.path.join(PANEL, "worker.json")) as f:
             w = json.load(f)
@@ -33,6 +44,25 @@ def call(cmd, args):
                 break
             data += chunk
     return json.loads(data.decode("utf-8"))
+
+
+def ensure_worker(timeout=25):
+    """Start the warm worker when none answers (the Claude tab normally starts it). -> True when it answers."""
+    if call("ping", []).get("ok"):
+        return True
+    import subprocess
+    import time
+    here = os.path.dirname(os.path.abspath(__file__))
+    pyw = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    subprocess.Popen([pyw if os.path.exists(pyw) else sys.executable, os.path.join(here, "swpanel_worker.py")],
+                     creationflags=flags)
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        time.sleep(0.5)
+        if call("ping", []).get("ok"):
+            return True
+    return False
 
 
 if __name__ == "__main__":
