@@ -8,3 +8,4 @@ parts/
 *.log
 secrets.h
 .claude/
+addin/bin/
