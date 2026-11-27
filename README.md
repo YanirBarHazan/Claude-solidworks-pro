@@ -2,10 +2,14 @@
 
 ### Describe the part. Claude builds it in SolidWorks, measures it, and proves it works.
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-orange.svg)](LICENSE) [![Commercial license](https://img.shields.io/badge/commercial%20use-license%20required-red.svg)](COMMERCIAL.md)
 ![SolidWorks 2019 | 2025](https://img.shields.io/badge/SolidWorks-2019%20%7C%202025-red)
 ![Claude Code skill](https://img.shields.io/badge/Claude%20Code-skill-orange)
 ![Hebrew + English](https://img.shields.io/badge/language-Hebrew%20%7C%20English-blue)
+
+> **Free for personal use, study and research. Companies need a commercial license.**
+> Engineers at a company, paid client work, or building it into a product: that is commercial use.
+> **[Get a commercial license on LinkedIn](https://www.linkedin.com/in/yanir-hazan)** · [What counts as commercial](COMMERCIAL.md)
 
 [עברית](README.he.md) · [Getting started](docs/getting-started.md) · [How it works](docs/how-it-works.md) · [Changelog](docs/changelog/README.md) · [Example project](examples/desk-agent/README.md)
 
@@ -161,7 +165,9 @@ assets/                 images and the demo video
 
 ## License
 
-[MIT](LICENSE). SolidWorks is a trademark of Dassault Systèmes. This project is not affiliated with Dassault Systèmes or Anthropic.
+[PolyForm Noncommercial 1.0.0](LICENSE): free for personal use, study, research and noncommercial organizations. **Commercial use (any use at or for a company) needs a paid license: [details](COMMERCIAL.md), [contact on LinkedIn](https://www.linkedin.com/in/yanir-hazan).** Versions up to v2.4.0 were released under MIT and stay MIT.
+
+SolidWorks is a trademark of Dassault Systèmes. This project is not affiliated with Dassault Systèmes or Anthropic.
 
 ## Feedback and custom versions
 

@@ -4,10 +4,14 @@
 
 ### מתארים את החלק. קלוד בונה אותו בסולידוורקס, מודד אותו ומוכיח שהוא עובד.
 
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-orange.svg)](LICENSE) [![Commercial license](https://img.shields.io/badge/commercial%20use-license%20required-red.svg)](COMMERCIAL.md)
 ![SolidWorks 2019 | 2025](https://img.shields.io/badge/SolidWorks-2019%20%7C%202025-red)
 ![Claude Code skill](https://img.shields.io/badge/Claude%20Code-skill-orange)
 ![Hebrew + English](https://img.shields.io/badge/language-Hebrew%20%7C%20English-blue)
+
+> **חינם לשימוש אישי, ללימודים ולמחקר. חברות צריכות רישיון מסחרי.**
+> מהנדסים בחברה, עבודה בתשלום ללקוחות, או שילוב במוצר: זה שימוש מסחרי.
+> **[לרישיון מסחרי, דברו איתי בלינקדאין](https://www.linkedin.com/in/yanir-hazan)** · [מה נחשב שימוש מסחרי](COMMERCIAL.md)
 
 [English](README.md) · [מדריך למתחילים](docs/he/getting-started.md) · [איך זה עובד](docs/how-it-works.md) · [יומן עדכונים](docs/he/changelog/README.md) · [פרויקט לדוגמה](examples/desk-agent/README.md)
 
@@ -163,7 +167,9 @@ powershell -ExecutionPolicy Bypass -NoExit -c "$env:SW_INSTALL_REF='v2.4.0'; irm
 
 ## רישיון
 
-[MIT](LICENSE). SolidWorks הוא סימן מסחרי של Dassault Systèmes. אין לפרויקט קשר ל-Dassault Systèmes או ל-Anthropic.
+[PolyForm Noncommercial 1.0.0](LICENSE): חינם לשימוש אישי, ללימודים, למחקר ולארגונים ללא מטרות רווח. **שימוש מסחרי (כל שימוש בחברה או עבורה) דורש רישיון בתשלום: [פירוט](COMMERCIAL.md), [יצירת קשר בלינקדאין](https://www.linkedin.com/in/yanir-hazan).** גרסאות עד v2.4.0 פורסמו תחת MIT ונשארות MIT.
+
+SolidWorks הוא סימן מסחרי של Dassault Systèmes. אין לפרויקט קשר ל-Dassault Systèmes או ל-Anthropic.
 
 ## משוב וגרסאות מותאמות
 
