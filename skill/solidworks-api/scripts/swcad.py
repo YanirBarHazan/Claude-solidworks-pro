@@ -15,6 +15,7 @@ import pythoncom
 from win32com.client import VARIANT
 
 from sw_common import connect, new_doc, save_as, T, swconst
+import sw_common as c
 
 C = swconst.constants
 MM = 1e-3
@@ -33,6 +34,11 @@ def _apply_script_prefs(sw):
     The originals are also written to a backup file first: if a run is killed (no atexit), the next
     run restores from that file instead of mistaking the script values for the user's own."""
     if _saved_toggles:
+        # Already saved in this process (the warm worker lives for hours): switch them again anyway, because
+        # another script that ended in the meantime restored the user's values - with the dimension pop-up
+        # back on, every AddDimension2 blocks on a "Modify" dialog and an equation on it is rejected.
+        for name, val in _SCRIPT_TOGGLES.items():
+            sw.SetUserPreferenceToggle(getattr(C, name), val)
         return
     import atexit
     import json
@@ -78,11 +84,15 @@ class PartBuilder:
         self.existing, self.old_specs, self.legacy = set(), {}, False
         if mode == "update":
             import json
+            user = c.active_title(sw) if c.BACKGROUND else None
             r = sw.OpenDoc6(path, C.swDocPART, C.swOpenDocOptions_Silent, "", 0, 0)
             if r[0] is None:
                 raise RuntimeError(f"cannot open {path} for update: {r[1:]}")
             self.doc = T(r[0], "IModelDoc2")
-            sw.ActivateDoc3(self.doc.GetTitle(), False, 0, 0)
+            if c.BACKGROUND:        # background agent: update a part without taking the user's screen
+                c.hide_for_background(sw, self.doc, user)
+            else:
+                sw.ActivateDoc3(self.doc.GetTitle(), False, 0, 0)
             f = self.doc.FirstFeature()
             while f is not None:
                 f = T(f, "IFeature")
@@ -133,10 +143,39 @@ class PartBuilder:
     def _add_eq(self, text):
         # Solve=False: the geometry is already built at these values; solving after every
         # equation made SolidWorks rebuild the whole part each time (quadratic). solve() runs once.
-        idx = self.eq.Add2(-1, text, False)
+        # A hidden (background agent) document takes equations only while shown: hidden, it rejects every one that
+        # names a global, and one it accepts (a plain number) breaks the document - SaveAs then writes 0 bytes
+        # (err=1). Never try hidden first.
+        with self.shown():
+            idx = self.eq.Add2(-1, text, False)
         if idx < 0:
             raise RuntimeError(f"equation rejected: {text}")
         return idx
+
+    def shown(self):
+        """Show a hidden (background agent) document for a moment: the equation manager of a hidden document
+        accepts plain numbers but rejects `"D1@SK" = "D"`. Showing it does not activate it; the user's document
+        stays the active one (checked, and handed back if SolidWorks moved it). Nested uses show it once."""
+        import contextlib
+        pb = self
+
+        @contextlib.contextmanager
+        def cm():
+            if pb.doc.Visible:
+                yield
+                return
+            a = pb.sw.ActiveDoc
+            user = T(a, "IModelDoc2").GetTitle() if a is not None else None
+            pb.doc.Visible = True
+            try:
+                yield
+            finally:
+                pb.doc.Visible = False
+                if user:
+                    a = pb.sw.ActiveDoc
+                    if a is None or T(a, "IModelDoc2").GetTitle() != user:
+                        pb.sw.ActivateDoc3(user, False, 0, 0)
+        return cm()
 
     def _ensure_globals(self, expr):
         if isinstance(expr, (int, float)):
@@ -716,11 +755,15 @@ class PartBuilder:
         if title != os.path.basename(path):                  # a part verified before its first save is logged
             import reviewlog                                 # as "Part17": give the entry the file name
             reviewlog.rename(title, os.path.basename(path))
+        hidden = not self.doc.Visible
+        user = c.active_title(self.sw) if hidden else None
         self.sw.CloseDoc(self.doc.GetTitle())
         r = self.sw.OpenDoc6(path, C.swDocPART, C.swOpenDocOptions_Silent, "", 0, 0)
         if r[0] is None:
             raise RuntimeError(f"reopen failed: {path} {r[1:]}")
         self.doc = T(r[0], "IModelDoc2")
+        if hidden:                  # background agent: the reopened part stays out of the user's way too
+            c.hide_for_background(self.sw, self.doc, user)
         self.part = T(self.doc, "IPartDoc")
         self.doc.ForceRebuild3(False)
         errs = self.rebuild_errors(skip_transient=False)
@@ -771,8 +814,9 @@ class _Sketch:
             return False
         f = pb.last_feat()
         f.Name = self.name
-        for dim, expr, absval in self.pending:
-            pb.link(dim, expr, absval)
+        with pb.shown():            # one moment on screen per sketch for a hidden document, not one per dimension
+            for dim, expr, absval in self.pending:
+                pb.link(dim, expr, absval)
         if self.fillets:
             linked = {T(d, "IDimension").FullName for d, _, _ in self.pending}
             todo = list(self.fillets)
@@ -804,6 +848,9 @@ class _Sketch:
         doc.ClearSelection2(True)
         if dd is None:
             raise RuntimeError(f"dimension failed in {self.name} (kind={kind}, selected={nsel}/{len(sel)}, at {x:.2f},{y:.2f})")
+        # NB: in a hidden document (background agent) DrivenState reads 2 (driven) for every new dimension, also
+        # for the ones that work - it is misreported there. Never "fix" it: setting it breaks the equation on it
+        # (Equations folder error 51). Equations on a hidden document go through PartBuilder.shown().
         return T(dd, "IDisplayDimension").GetDimension2(0)
 
     def _sel_seg(self, seg):

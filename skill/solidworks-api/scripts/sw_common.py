@@ -149,21 +149,36 @@ def default_template(sw, kind):
 BACKGROUND = os.environ.get("SW_BACKGROUND") == "1"   # background agent: new documents stay hidden
 
 
+def active_title(sw):
+    try:
+        a = sw.ActiveDoc
+        return T(a, "IModelDoc2").GetTitle() if a is not None else None
+    except Exception:
+        return None
+
+
+def hide_for_background(sw, doc, user):
+    """Background agent: hide `doc`'s window and make sure `user` (the title that was active before) is the active
+    document again. The document must be opened or created VISIBLE first and hidden afterwards: one created with
+    DocumentVisible(False) cannot be sketched at all (InsertSketch leaves ActiveSketch None) and ActivateDoc3 cannot
+    activate it. Equations on the hidden document go through swcad.PartBuilder.shown()."""
+    doc.Visible = False
+    if user and active_title(sw) != user:
+        try:
+            sw.ActivateDoc3(user, False, 0, 0)
+        except Exception:
+            pass
+
+
 def new_doc(sw, kind):
     tpl = default_template(sw, kind)
-    if BACKGROUND:       # a hidden document never becomes the one the user is looking at
-        dtype = {"part": 1, "assembly": 2, "drawing": 3}[kind]
-        sw.DocumentVisible(False, dtype)
-        try:
-            doc = T(sw.NewDocument(tpl, 0, 0, 0), "IModelDoc2")
-        finally:
-            sw.DocumentVisible(True, dtype)
-    else:
-        doc = T(sw.NewDocument(tpl, 0, 0, 0), "IModelDoc2")
-    if doc is not None:
-        CREATED.add(doc.GetTitle())
+    user = active_title(sw) if BACKGROUND else None
+    doc = T(sw.NewDocument(tpl, 0, 0, 0), "IModelDoc2")
     if doc is None:
         raise RuntimeError(f"NewDocument failed, template={tpl!r}")
+    CREATED.add(doc.GetTitle())
+    if BACKGROUND:      # a background agent's document never stays the one the user looks at
+        hide_for_background(sw, doc, user)
     return doc
 
 
@@ -181,7 +196,7 @@ def save_as(doc, path):
     filesafe.before_write(path)
     # swSaveAsCurrentVersion=0, swSaveAsOptions_Silent=1; in/out ints come back as a tuple
     ok, errs, warns = doc.Extension.SaveAs(path, 0, 1, None, 0, 0)
-    if not ok or not os.path.exists(path):
+    if not ok or not os.path.exists(path) or os.path.getsize(path) == 0:
         raise RuntimeError(f"SaveAs failed {path}: err={errs} warn={warns}")
     filesafe.record(path)
     return path
