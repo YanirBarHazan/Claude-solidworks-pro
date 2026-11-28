@@ -546,7 +546,7 @@ def serve():
     w = Worker()
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.bind(("127.0.0.1", 0))
-    srv.listen(4)
+    srv.listen(64)       # background agents queue here while one command runs (swx.connect retries too)
     token = secrets.token_hex(16)
     with open(os.path.join(PANEL, "worker.json.tmp"), "w") as f:
         json.dump({"port": srv.getsockname()[1], "token": token, "pid": os.getpid()}, f)
