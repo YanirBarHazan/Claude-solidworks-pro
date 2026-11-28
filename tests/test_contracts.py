@@ -100,3 +100,31 @@ def test_mcp_stdio_round_trip():
     names, text = asyncio.run(asyncio.wait_for(go(), 60))
     assert "model_card" in names and "model_snapshot" in names
     assert "SolidWorks through the API" in text and "Sections of engineering_guide" in text
+
+
+def test_swx_waits_for_a_busy_worker(monkeypatch):
+    """Many agents at once: a refused connection is retried, not reported as 'worker not running'."""
+    import swx
+    tries = []
+
+    def fake(addr, timeout):
+        tries.append(addr)
+        if len(tries) < 3:
+            raise ConnectionRefusedError
+        return "SOCKET"
+    monkeypatch.setattr(swx.socket, "create_connection", fake)
+    monkeypatch.setattr(swx.time, "sleep", lambda s: None)
+    assert swx.connect(1234, wait=10) == "SOCKET" and len(tries) == 3
+
+
+def test_swx_gives_up_on_a_dead_worker(monkeypatch):
+    import swx
+
+    def refused(addr, timeout):
+        raise ConnectionRefusedError
+    clock = iter(range(0, 1000, 5))
+    monkeypatch.setattr(swx.socket, "create_connection", refused)
+    monkeypatch.setattr(swx.time, "sleep", lambda s: None)
+    monkeypatch.setattr(swx.time, "time", lambda: next(clock))
+    assert swx.connect(1234, wait=30) is None
+    assert swx.connect(None) is None

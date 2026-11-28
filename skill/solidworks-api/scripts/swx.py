@@ -16,11 +16,31 @@ import json
 import os
 import socket
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import contract  # noqa: E402
 
 PANEL = os.path.join(os.path.expanduser("~"), ".solidworks-api", "swpanel")
+BUSY_WAIT = 90          # seconds a busy worker may keep a caller waiting before it counts as not running
+
+
+def connect(port, wait=BUSY_WAIT):
+    """The worker runs one command at a time; with several agents its queue of waiting connections can be full
+    for a while. A refused connection is retried for `wait` seconds before the worker counts as not running."""
+    if not port:
+        return None
+    t0, delay = time.time(), 0.2
+    while True:
+        try:
+            return socket.create_connection(("127.0.0.1", port), timeout=5)
+        except (ConnectionRefusedError, socket.timeout, TimeoutError):
+            if time.time() - t0 >= wait:
+                return None
+            time.sleep(delay)
+            delay = min(delay * 2, 3.0)
+        except OSError:
+            return None
 
 
 def call(cmd, args):
@@ -31,8 +51,10 @@ def call(cmd, args):
     try:
         with open(os.path.join(PANEL, "worker.json")) as f:
             w = json.load(f)
-        s = socket.create_connection(("127.0.0.1", w["port"]), timeout=5)
-    except (OSError, ValueError, KeyError):
+    except (OSError, ValueError):
+        return {"ok": False, "result": "worker not running: the Claude tab starts it (or run swpanel_worker.py)"}
+    s = connect(w.get("port"))
+    if s is None:
         return {"ok": False, "result": "worker not running: the Claude tab starts it (or run swpanel_worker.py)"}
     with s:
         s.settimeout(None)
