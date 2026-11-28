@@ -388,9 +388,15 @@ class Worker:
             # 2019: an equation change inside a component is silently ignored unless its document is active
             # (asmtools.edit_component_equation); the top document is re-activated in the finally below
             self.sw.ActivateDoc3(target.GetTitle(), False, 0, 0)
+        hidden = not target.Visible     # a background agent's part (--doc): its equation manager ignores changes
+        user = c.active_title(self.sw) if hidden else None      # while hidden, so show it for the moment
+        if hidden:
+            target.Visible = True
         try:
             return self._set(top, target, args)
         finally:
+            if hidden:
+                c.hide_for_background(self.sw, target, user)
             if target is not top:
                 self.sw.ActivateDoc3(top.GetTitle(), False, 0, 0)
                 top.ForceRebuild3(False)

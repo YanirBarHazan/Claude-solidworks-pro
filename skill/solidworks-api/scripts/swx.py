@@ -21,11 +21,32 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import contract  # noqa: E402
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import contract  # noqa: E402
-
 PANEL = os.path.join(os.path.expanduser("~"), ".solidworks-api", "swpanel")
 BUSY_WAIT = 90          # seconds a busy worker may keep a caller waiting before it counts as not running
+START_WAIT = 60         # a cold worker connects to SolidWorks and loads the type library: often more than 25 s
+
+
+def pid_alive(pid):
+    """False only when the process is surely gone (worker.json left behind by a stopped worker): then a refused
+    connection is not a busy worker, and waiting BUSY_WAIT for it only delays starting a new one."""
+    if not pid:
+        return True
+    if os.name != "nt":
+        try:
+            os.kill(pid, 0)
+            return True
+        except OSError:
+            return False
+    import ctypes
+    k = ctypes.windll.kernel32
+    h = k.OpenProcess(0x1000, False, int(pid))          # PROCESS_QUERY_LIMITED_INFORMATION
+    if not h:
+        return False
+    try:
+        code = ctypes.c_ulong()
+        return not (k.GetExitCodeProcess(h, ctypes.byref(code)) and code.value != 259)   # 259 = STILL_ACTIVE
+    finally:
+        k.CloseHandle(h)
 
 
 def connect(port, wait=BUSY_WAIT):
@@ -56,7 +77,7 @@ def call(cmd, args):
             w = json.load(f)
     except (OSError, ValueError):
         return {"ok": False, "result": "worker not running: the Claude tab starts it (or run swpanel_worker.py)"}
-    s = connect(w.get("port"))
+    s = connect(w.get("port"), BUSY_WAIT if pid_alive(w.get("pid")) else 0)
     if s is None:
         return {"ok": False, "result": "worker not running: the Claude tab starts it (or run swpanel_worker.py)"}
     with s:
@@ -76,7 +97,7 @@ def call(cmd, args):
     return json.loads(data.decode("utf-8"))
 
 
-def ensure_worker(timeout=25):
+def ensure_worker(timeout=START_WAIT):
     """Start the warm worker when none answers (the Claude tab normally starts it). -> True when it answers."""
     if call("ping", []).get("ok"):
         return True
