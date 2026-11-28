@@ -140,13 +140,13 @@ powershell -ExecutionPolicy Bypass -NoExit -c "irm https://raw.githubusercontent
 </div>
 
 ```
-powershell -ExecutionPolicy Bypass -NoExit -c "$env:SW_INSTALL_REF='v2.4.0'; irm https://raw.githubusercontent.com/YanirBarHazan/Claude-solidworks-pro/v2.4.0/install.ps1 | iex"
+powershell -ExecutionPolicy Bypass -NoExit -c "$env:SW_INSTALL_REF='v2.5.0'; irm https://raw.githubusercontent.com/YanirBarHazan/Claude-solidworks-pro/v2.5.0/install.ps1 | iex"
 ```
 
 <div dir="rtl">
 
 או מורידים את `install.ps1` מ[עמוד הגרסאות](https://github.com/YanirBarHazan/Claude-solidworks-pro/releases),
-קוראים אותו ומריצים `powershell -ExecutionPolicy Bypass -File install.ps1 -Ref v2.4.0`. ‏`-Ref` מקבל תגית גרסה,
+קוראים אותו ומריצים `powershell -ExecutionPolicy Bypass -File install.ps1 -Ref v2.5.0`. ‏`-Ref` מקבל תגית גרסה,
 ענף או commit.
 
 ## לקוחות AI אחרים (MCP)

@@ -14,8 +14,8 @@
 # Re-run it any time to update.
 #
 # Pinned to one version (recommended at work - you install exactly the code you read):
-#   $env:SW_INSTALL_REF = "v2.4.0"; irm https://raw.githubusercontent.com/YanirBarHazan/Claude-solidworks-pro/v2.4.0/install.ps1 | iex
-# or download this file, read it, then:  powershell -ExecutionPolicy Bypass -File install.ps1 -Ref v2.4.0
+#   $env:SW_INSTALL_REF = "v2.5.0"; irm https://raw.githubusercontent.com/YanirBarHazan/Claude-solidworks-pro/v2.5.0/install.ps1 | iex
+# or download this file, read it, then:  powershell -ExecutionPolicy Bypass -File install.ps1 -Ref v2.5.0
 # -Ref takes a release tag, a branch or a commit. Default: $env:SW_INSTALL_REF, else main (the latest).
 # Everything this changes on the PC is listed in README.md, section "What it changes on your PC".
 
@@ -94,7 +94,7 @@ if ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "skill\solidworks-api
 } else {
     $tmp = Join-Path $env:TEMP ("sw-skill-" + [guid]::NewGuid().ToString("N"))
     New-Item -ItemType Directory -Force $tmp | Out-Null
-    # codeload takes any ref: a tag (v2.4.0), a branch (main) or a commit
+    # codeload takes any ref: a tag (v2.5.0), a branch (main) or a commit
     Invoke-WebRequest -UseBasicParsing "https://codeload.github.com/$repo/zip/$Ref" -OutFile "$tmp\repo.zip"
     Expand-Archive "$tmp\repo.zip" -DestinationPath $tmp -Force
     $src = Get-ChildItem -Directory $tmp | ForEach-Object { Join-Path $_.FullName "skill\solidworks-api" } |
