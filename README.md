@@ -130,11 +130,11 @@ the tab and removes the sign-in shortcut), then delete the two folders above.
 install exactly the version you (or your IT) reviewed, pin a release:
 
 ```
-powershell -ExecutionPolicy Bypass -NoExit -c "$env:SW_INSTALL_REF='v2.4.0'; irm https://raw.githubusercontent.com/YanirBarHazan/Claude-solidworks-pro/v2.4.0/install.ps1 | iex"
+powershell -ExecutionPolicy Bypass -NoExit -c "$env:SW_INSTALL_REF='v2.5.0'; irm https://raw.githubusercontent.com/YanirBarHazan/Claude-solidworks-pro/v2.5.0/install.ps1 | iex"
 ```
 
 Or download `install.ps1` from the [releases page](https://github.com/YanirBarHazan/Claude-solidworks-pro/releases),
-read it, and run `powershell -ExecutionPolicy Bypass -File install.ps1 -Ref v2.4.0`. `-Ref` takes a release tag,
+read it, and run `powershell -ExecutionPolicy Bypass -File install.ps1 -Ref v2.5.0`. `-Ref` takes a release tag,
 a branch or a commit.
 
 ## Other AI clients (MCP)
