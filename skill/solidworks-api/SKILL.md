@@ -100,12 +100,20 @@ the warnings before answering a complaint; a warning that repeats is a fix to th
 | A SolidWorks error or a version question | `references/version_notes.md` |
 | Reading listings, approval sketches, token habits | `references/tools_and_workflow.md` |
 | Quick look / value change in the open document (fast commands), or the Claude tab inside SolidWorks | `references/panel.md` |
+| The exact signature of an API call you have not used before | `python scripts/probe_api.py IFeatureManager <Method>` |
 | What happened today / the user is unhappy with a session | `python scripts/daylog.py` -> `~/.solidworks-api/daylog/<date>.md` |
 
 ## Library (`scripts/`)
 - `sw_common.py` - connect, early binding, typed wrapper `T()`, version guard, templates, save, safe closing.
   `connect()` turns on fast mode (`CommandInProgress`: COM calls 0.15 ms instead of ~15 ms; capability suite 397 s ->
   117 s on 2019) and resets it at exit; `SW_FAST=0` turns it off (version note 45).
+- `contracts/worker_commands.json` + `contract.py` - the worker's commands and arguments, one source for the worker,
+  `swx.py`, the MCP server and the tab's prompt (`tests/test_contracts.py`).
+- `mcp/server.py` - the same commands for any MCP client (Claude Desktop, Cursor, ...), plus `engineering_guide`
+  (this method, for a model that never saw this skill). `probe_api.py` - prints real API signatures from the type
+  library.
+- `agents.py` - background agents of the tab: a queue, 2-8 at a time (menu), steps, pictures, a flow chart; they
+  work on their own hidden documents (`--doc`, `run --background`). `updater.py` - the tab's update notice.
 - `swpanel_worker.py` + `swx.py` - warm worker and its client: `card` (compact model summary + what changed since the last look - read it
   instead of re-reading the feature tree), `info` (document, selection with geometry in part
   and assembly coordinates, features, equations, size), `set NAME=VALUE [--selected]` (in place), `fillet`, `save`,

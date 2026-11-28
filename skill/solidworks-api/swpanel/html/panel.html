@@ -27,7 +27,7 @@
           background: linear-gradient(135deg, #38c8f0 0%, #6d8bff 100%); }
   #top .title { flex: 1; padding: 0 6px; line-height: 1.15; }
   #top .title .t1 { font-size: 13px; font-weight: 600; color: #eef3f8; }
-  #top .title .t2 { font: 10px Consolas, monospace; color: #7d8b9c; }
+  #top .title .t2 { font-size: 11px; color: #7d8b9c; }
   .led { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #34d399;
          box-shadow: 0 0 6px #34d399; margin-left: 4px; vertical-align: middle; }
   .tbtn { background: transparent; border: 1px solid transparent; color: #9fb0c3; width: 30px; height: 30px;
@@ -125,6 +125,61 @@
   .chip:hover { color: #38c8f0; border-color: #38c8f0; }
   #foot { font: 9px Consolas, monospace; color: #4f5d6d; text-align: center; padding: 4px 0 0 0; }
 
+  /* live steps while Claude works: one line per step, in plain words */
+  #steps { padding: 2px 0 0 0; }
+  .st { font-size: 11px; color: #9fb0c3; padding: 1px 0; white-space: nowrap; overflow: hidden;
+        text-overflow: ellipsis; }
+  .st .ico { display: inline-block; width: 14px; text-align: center; margin-left: 4px; }
+  .st.done .ico { color: #34d399; } .st.fail .ico { color: #f87171; } .st.fail { color: #fecaca; }
+  .st.now { color: #eef3f8; } .st.now .ico { color: #38c8f0; }
+  .spin { display: inline-block; width: 8px; height: 8px; border: 2px solid #38c8f0; border-right-color: transparent;
+          border-radius: 50%; animation: rot .8s linear infinite; vertical-align: -1px; }
+  @keyframes rot { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  .st.more { color: #5d6b7c; font-size: 10px; }
+  /* after a reply: "5 steps · 14 s" - click to see them */
+  .trace { font-size: 10px; color: #7d8b9c; cursor: pointer; margin: -8px 34px 12px 0; }
+  .trace:hover { color: #38c8f0; }
+  .trace-list { margin: -6px 34px 12px 0; padding: 4px 8px; border: 1px solid #1f2a38; border-radius: 6px;
+                background: #10161e; }
+  /* a plan Claude proposes before bigger work */
+  .plan { margin-top: 8px; border: 1px solid #23506a; border-radius: 6px; background: #0f1a24; padding: 6px 8px; }
+  .plan .ph { font-size: 10px; letter-spacing: 1px; color: #38c8f0; margin-bottom: 4px; }
+  .plan .pi { padding: 2px 0; }
+  .plan .pn { display: inline-block; min-width: 16px; color: #38c8f0; font-family: Consolas, monospace; }
+  .card .ghost { background: transparent; color: #9fb0c3; border: 1px solid #2c3b4f; }
+  /* small menu under the ... button */
+  #menu { display: none; position: absolute; top: 40px; left: 6px; z-index: 5; background: #141b24;
+          border: 1px solid #2c3b4f; border-radius: 6px; padding: 4px 0; min-width: 170px; }
+  #menu div { padding: 6px 12px; cursor: pointer; font-size: 12px; }
+  #menu div:hover { background: #1c2633; color: #38c8f0; }
+  #menu .mdir { font-size: 10px; color: #7d8b9c; cursor: default; white-space: nowrap; overflow: hidden;
+                text-overflow: ellipsis; max-width: 220px; }
+  #menu .mdir:hover { background: transparent; color: #7d8b9c; }
+  #top { position: relative; }
+  #top .title .t2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+
+  /* background agents: a flow chart and one card per agent, under the top bar */
+  #agbar { display: none; background: #0b1016; border-bottom: 1px solid #1a2330; padding: 4px 8px 6px 8px;
+           max-height: 230px; overflow-y: auto; }
+  #flow { text-align: center; }
+  .ag { padding: 3px 6px; margin: 2px 0; border: 1px solid #1f2a38; border-radius: 6px; background: #10161e;
+        cursor: pointer; overflow: hidden; }
+  .ag:hover { border-color: #2c3b4f; }
+  .ag .an { font-size: 12px; font-weight: 600; color: #eef3f8; }
+  .ag .ast { font-size: 10px; color: #9fb0c3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ag.failed .ast { color: #fecaca; }
+  .dot2 { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin: 0 0 1px 6px; }
+  .pulse { animation: blink 1.2s infinite; }
+  .ath { float: left; width: 42px; height: 32px; object-fit: cover; border-radius: 4px; margin-right: 6px;
+         border: 1px solid #233041; background: #0d1117; }
+  .adet { margin: -2px 4px 6px 4px; padding: 4px 8px; border-right: 2px solid #233041; font-size: 11px; }
+  .adet .atx { color: #b9c7d6; margin-top: 3px; }
+  .shot { display: block; max-width: 100%; margin-top: 6px; border-radius: 6px; border: 1px solid #233041;
+          background: #0d1117; }
+  body.ltr .dot2 { margin: 0 6px 1px 0; }
+  body.ltr .ath { float: right; margin-right: 0; margin-left: 6px; }
+  body.ltr .adet { border-right: 0; border-left: 2px solid #233041; }
+
   /* language flags (top bar): the active one bright, the other dimmed */
   .flag { background: transparent; border: 1px solid transparent; border-radius: 3px; padding: 2px; margin: 0 1px;
           cursor: pointer; opacity: .4; line-height: 0; }
@@ -147,6 +202,9 @@
   body.ltr .ins .tag, body.ltr #info .k { margin-left: 0; margin-right: 6px; }
   body.ltr .card button { margin-left: 0; margin-right: 6px; }
   body.ltr .chip { margin-left: 0; margin-right: 4px; }
+  body.ltr .st .ico { margin-left: 0; margin-right: 4px; }
+  body.ltr .trace, body.ltr .trace-list { margin-right: 0; margin-left: 34px; }
+  body.ltr #menu { left: auto; right: 6px; }
 </style>
 <script>
   function act(a) { document.getElementById('flag').value = a; }
@@ -159,12 +217,14 @@
   // Keys here = the static labels; swpanel_taskpane.py TXT holds the lines Python writes into the chat.
   var L = {
     he: { dir: 'rtl', title: 'מהנדס Claude', folder: 'תיקיית שמירה', newchat: 'שיחה חדשה', file: 'צרף קובץ',
+          menu: 'עוד', working: 'עובד', dirnow: 'שומר ב:',
           stop: 'עצור', send: 'שלח', ph: 'מה לעשות? (Enter שולח, Shift+Enter שורה חדשה)',
           foot: 'Claude עלול לטעות - בדוק מידות חשובות מול ספק / שרטוט.',
           chips: [['בדיקת ייצור', 'בדוק את החלק לייצור: באיזו שיטה הכי נכון לייצר אותו ומה כדאי לשנות'],
                   ['ייעול ועלות', 'איך להוזיל או לפשט את החלק / ההרכבה בלי לפגוע בתפקוד?'],
                   ['הסבר מודל', 'הסבר לי את המודל: מה מניע מה ואיך משנים אותו']] },
     en: { dir: 'ltr', title: 'Claude engineer', folder: 'Save folder', newchat: 'New chat', file: 'Attach file',
+          menu: 'More', working: 'Working', dirnow: 'Saving to:',
           stop: 'Stop', send: 'Send', ph: 'What should I do? (Enter sends, Shift+Enter new line)',
           foot: 'Claude can make mistakes - check critical dimensions against the supplier / drawing.',
           chips: [['Manufacturing check', 'Check this part for manufacturing: which method suits it best and what should change'],
@@ -181,7 +241,9 @@
     document.documentElement.lang = l;
     document.body.className = t.dir;
     byId('t1txt').innerText = t.title;
-    byId('bfolder').title = t.folder; byId('bnew').title = t.newchat; byId('plus').title = t.file;
+    byId('bnew').title = t.newchat; byId('plus').title = t.file; byId('bmenu').title = t.menu;
+    byId('m_folder').innerText = t.folder; byId('m_new').innerText = t.newchat; byId('m_file').innerText = t.file;
+    byId('wk').innerText = t.working; byId('mdirk').innerText = t.dirnow;
     byId('stop').title = t.stop; byId('send').title = t.send;
     byId('req').placeholder = t.ph;
     byId('foot').innerText = t.foot;
@@ -192,6 +254,13 @@
     byId('fl_he').className = 'flag' + (l == 'he' ? ' on' : '');
     byId('fl_en').className = 'flag' + (l == 'en' ? ' on' : '');
   }
+  function tog(el) { var n = el.nextSibling; if (n) { n.style.display = n.style.display == 'none' ? 'block' : 'none'; } }
+  function menu(on) { byId('menu').style.display = on ? 'block' : 'none'; }
+  function mact(a) { menu(false); act(a); }
+  document.onclick = function (e) {
+    e = e || window.event; var t = e.target || e.srcElement;
+    if (t && t.id != 'bmenu' && !(t.parentNode && t.parentNode.id == 'bmenu')) { menu(false); }
+  };
   function pickLang(l) { if (l != cur) { setLang(l); act('lang:' + l); } }
   function fromHash() { setLang((location.hash || '#he').substring(1)); }
   window.onload = fromHash;
@@ -199,11 +268,10 @@
 </script>
 </head>
 <body>
-<div id="brand"><b>&#9632;</b> CLAUDE // SOLIDWORKS ENGINEERING</div>
 <div id="top">
   <div id="logo">C</div>
   <div class="title"><div class="t1"><span id="t1txt">מהנדס Claude</span> <span class="led"></span></div>
-    <div class="t2">DESIGN · DFM · OPTIMISE</div></div>
+    <div class="t2" id="sel">...</div></div>
   <button class="flag on" id="fl_he" onclick="pickLang('he')" title="עברית">
     <svg width="18" height="13" viewBox="0 0 220 160"><rect width="220" height="160" fill="#fff"/>
       <rect y="15" width="220" height="25" fill="#0038b8"/><rect y="120" width="220" height="25" fill="#0038b8"/>
@@ -218,17 +286,21 @@
         <path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#uk_t)" stroke="#C8102E" stroke-width="4"/>
         <path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/>
         <path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/></g></svg></button>
-  <button class="tbtn" id="bfolder" onclick="act('folder')" title="תיקיית שמירה"><i class="ic">&#xE8B7;</i></button>
   <button class="tbtn" id="bnew" onclick="act('new')" title="שיחה חדשה"><i class="ic">&#xE710;</i></button>
+  <button class="tbtn" id="bmenu" onclick="menu(byId('menu').style.display != 'block')" title="עוד"><i class="ic">&#xE712;</i></button>
+  <div id="menu">
+    <div id="m_folder" onclick="mact('folder')">תיקיית שמירה</div>
+    <div id="m_file" onclick="mact('file')">צרף קובץ</div>
+    <div id="m_new" onclick="mact('new')">שיחה חדשה</div>
+    <div id="m_agents" onclick="mact('agents_max')">סוכנים במקביל: 3</div>
+    <div class="mdir"><span id="mdirk">שומר ב:</span> <span id="dir" dir="ltr">...</span></div>
+  </div>
 </div>
-<div id="info">
-  <div><span class="k sel">SEL</span><span class="v" id="sel">...</span></div>
-  <div><span class="k">DIR</span><span class="v" id="dir">...</span></div>
-</div>
+<div id="agbar"><div id="flow"></div><div id="agents"></div></div>
 <div id="chat"></div>
-<div id="busy"><span class="pill">ANALYSING<span class="dot">.</span><span class="dot d2">.</span><span class="dot d3">.</span></span>
+<div id="busy"><span class="pill"><span id="wk">עובד</span><span class="dot">.</span><span class="dot d2">.</span><span class="dot d3">.</span></span>
   <div id="scan"><div></div></div>
-  <div id="step"></div></div>
+  <div id="steps"></div></div>
 <div id="bottom">
   <div id="att"></div>
   <div id="pill">

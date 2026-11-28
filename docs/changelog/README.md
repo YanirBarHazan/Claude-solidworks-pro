@@ -2,6 +2,7 @@
 
 Every release, newest first. Each page keeps the full notes, numbers and links.
 
+- [What's new (v2.5): parallel agents, update notice, any AI client, one contract, a clearer tab](2026-11-27-v2.5.md)
 - [What's new (2026-11-23, v2.4): English tab, clear permissions, pinned install, lighter start](2026-11-23-v2.4.md)
 - [What's new (2026-11-23, v2.3): install in one line, the tab opens by itself, start questions every time](2026-11-23-onboarding.md)
 - [What's new (2026-11-20): the Claude tab as a manufacturing engineer](2026-11-20-engineer-panel.md)

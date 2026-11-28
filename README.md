@@ -39,6 +39,7 @@ A **skill for [Claude Code](https://claude.com/claude-code)** that turns Claude 
 | **Design for change** | Client values live in one place. Update in place in seconds, never rebuild the files. |
 | **Engineering checks** | Snap-fit strain, detent torque, tipping stability, tolerance stacks. |
 | **Drawings** | Standard views and scale, model dimensions, section views, tolerances, BOM, ISO or company title block. |
+| **Parallel agents** | A bigger job is split into parts that background agents build at the same time (2-8, set in the tab's menu) on hidden documents, so the one you look at never changes. The tab shows a flow chart, each agent's current step and a picture of its result; the main Claude checks and brings it together. |
 | **3D printing** | Print orientation, overhang and support analysis, sliced projects with time and filament per plate. |
 
 ## Built with it: the desk agent
@@ -136,6 +137,30 @@ Or download `install.ps1` from the [releases page](https://github.com/YanirBarHa
 read it, and run `powershell -ExecutionPolicy Bypass -File install.ps1 -Ref v2.4.0`. `-Ref` takes a release tag,
 a branch or a commit.
 
+## Other AI clients (MCP)
+
+The same SolidWorks connection works from any MCP client (Claude Desktop, Cursor, other agents), with the same
+commands, checks and engineering method. On the PC with SolidWorks:
+
+```
+python -m pip install --user mcp
+```
+
+Then add the server to the client's MCP settings (Claude Desktop: `claude_desktop_config.json`):
+
+```json
+"solidworks": {
+  "command": "python",
+  "args": ["C:\\Users\\<you>\\.claude\\skills\\solidworks-api\\mcp\\server.py"]
+}
+```
+
+Tools: `model_card`, `model_info`, `set_globals`, `add_fillet`, `save_document`, `run_script`,
+`solidworks_status`, `model_snapshot` and `engineering_guide` (the method itself, for a model that has never
+seen this skill). The commands and their arguments are one
+contract ([`contracts/worker_commands.json`](skill/solidworks-api/contracts/worker_commands.json)) shared by the
+tab, the command line and the MCP server; a test fails if any of them drifts.
+
 ## Updating
 
 Run the same line (or `install.cmd`) again. It stops the old tab, installs the latest version (the old one goes to `~\.solidworks-api\backups\`, chats and settings are kept) and starts the new tab. Restart SolidWorks if it was open.
@@ -152,6 +177,7 @@ assets/                 images and the demo video
 
 ## Latest updates
 
+- **v2.5: Parallel agents and an update notice.** Background agents build the parts of a bigger job at the same time on hidden documents, with a flow chart and pictures in the tab; the tab tells you when a new version is out and updates in one click; MCP server for any AI client. [Details](docs/changelog/2026-11-27-v2.5.md)
 - **2026-11-23, v2.4: English tab, clear permissions, pinned install.** A flag in the tab switches Hebrew / English; the README spells out what Claude may do without asking and what the installer changes; `-Ref` installs a reviewed version; small changes skip the start questions. [Details](docs/changelog/2026-11-23-v2.4.md)
 - **2026-11-23, v2.3: Install in one line.** The installer sets up Python, Claude Code, the skill and the Claude tab; the tab opens with SolidWorks every time; Claude asks the start questions first. [Details](docs/changelog/2026-11-23-onboarding.md)
 - **2026-11-18, v2.2: Claude inside SolidWorks.** A chat tab in the Task Pane, fast mode with COM calls up to 100x faster, and design for change: a span edit plus a full re-check in 5 s. [Details](docs/changelog/2026-11-18-v2.2.md)

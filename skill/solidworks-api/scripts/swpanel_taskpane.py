@@ -24,6 +24,11 @@ import sys
 import threading
 import time
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import panel_steps  # noqa: E402
+import updater  # noqa: E402
+import agents as agentsmod  # noqa: E402
+
 PANEL = os.path.join(os.path.expanduser("~"), ".solidworks-api", "swpanel")
 AGENT = os.path.join(PANEL, "agent")              # fixed cwd: Claude Code stores conversations per folder
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -31,6 +36,7 @@ SRC = os.path.join(HERE, "..", "swpanel")
 REQUIRE = os.environ.get("SW_REQUIRE_REV", "")   # "" = any version; set e.g. "27." to lock a project to 2019
 STOP = os.path.join(PANEL, "taskpane.stop")
 SETTINGS = os.path.join(PANEL, "settings.json")
+UPDATE_STATE = os.path.join(PANEL, "update.json")
 DEFAULT_DIR = os.path.join(os.path.expanduser("~"), "Documents", "Claude SolidWorks")
 SEL_TYPES = {1: "edge", 2: "face", 3: "vertex", 4: "plane", 5: "axis", 9: "sketch segment", 11: "sketch point",
              20: "component", 22: "feature", 25: "dimension", 31: "sketch"}  # swSelectType_e (subset)
@@ -64,6 +70,30 @@ TXT = {                      # every line the tab itself shows; panel.html holds
         "pick_dir": "תיקיית שמירה",
         "pick_file": "צרף קובץ",
         "lang_set": "עברית",
+        "trace": "{n} שלבים · {s:.0f} שנ'",
+        "trace_tokens": " · {k:.0f}K טוקנים",
+        "more": "+{n} שלבים קודמים",
+        "plan_head": "תוכנית",
+        "plan_all_btn": "בצע הכל",
+        "plan_one_btn": "שלב אחד ועצור",
+        "plan_edit_btn": "שנה",
+        "plan_all_msg": "אושר - בצע את כל התוכנית.",
+        "plan_one_msg": "בצע רק את השלב הבא ועצור לבדיקה.",
+        "next_btn": "המשך",
+        "halt_btn": "עצור כאן",
+        "next_msg": "המשך לשלב הבא.",
+        "halt_msg": "עצור כאן: סכם מה נעשה, מה נבדק ומה נשאר.",
+        "update_q": "יש גרסה חדשה: {v} (אצלך {cur}). לעדכן?",
+        "update_btn": "עדכן עכשיו",
+        "later_btn": "לא עכשיו",
+        "notes_btn": "מה חדש",
+        "updating": "מעדכן... הלשונית תיסגר ותחזור לבד בעוד כחצי דקה. חלון ההתקנה יראה את ההתקדמות.",
+        "later_ok": "אזכיר מחר.",
+        "agents_start": "מפעיל {n} סוכנים ברקע (עד {m} במקביל).",
+        "agent_done": "{name} סיים",
+        "agent_failed": "{name} נכשל",
+        "agents_report": "כל הסוכנים סיימו - Claude בודק ומאחד.",
+        "agents_max": "סוכנים במקביל: {n}",
     },
     "en": {
         "hello": "Hi. Select something in SolidWorks and tell me what to do.",
@@ -92,6 +122,31 @@ TXT = {                      # every line the tab itself shows; panel.html holds
         "pick_dir": "Save folder",
         "pick_file": "Attach file",
         "lang_set": "English",
+        "trace": "{n} steps · {s:.0f} s",
+        "trace_tokens": " · {k:.0f}K tokens",
+        "more": "+{n} earlier steps",
+        "plan_head": "PLAN",
+        "plan_all_btn": "Do it all",
+        "plan_one_btn": "One step, then stop",
+        "plan_edit_btn": "Change",
+        "plan_all_msg": "Approved - carry out the whole plan.",
+        "plan_one_msg": "Do only the next step, then stop for a check.",
+        "next_btn": "Continue",
+        "halt_btn": "Stop here",
+        "next_msg": "Continue with the next step.",
+        "halt_msg": "Stop here: sum up what was done, what was checked and what is left.",
+        "update_q": "A new version is out: {v} (you have {cur}). Update now?",
+        "update_btn": "Update now",
+        "later_btn": "Not now",
+        "notes_btn": "What's new",
+        "updating": "Updating... the tab closes and comes back by itself in about half a minute. The installer "
+                    "window shows the progress.",
+        "later_ok": "I'll remind you tomorrow.",
+        "agents_start": "Starting {n} background agents (up to {m} at a time).",
+        "agent_done": "{name} finished",
+        "agent_failed": "{name} failed",
+        "agents_report": "All agents have finished - Claude checks and brings it together.",
+        "agents_max": "Agents at a time: {n}",
     },
 }
 LANGS = tuple(TXT)
@@ -228,9 +283,14 @@ class ClaudeSession:
                         if blk.get("type") == "text" and blk.get("text", "").strip():
                             self.out.put(("text", blk["text"].strip()))
                         elif blk.get("type") == "tool_use":
-                            inp = blk.get("input", {})
-                            what = inp.get("description") or inp.get("command") or inp.get("file_path") or                                 inp.get("skill") or inp.get("pattern") or ""
-                            self.out.put(("step", f"{blk.get('name')}: {str(what)[:140]}"))
+                            self.out.put(("step", {"id": blk.get("id"), "tool": blk.get("name"),
+                                                   "input": blk.get("input", {})}))
+                elif t == "user":                       # tool results: mark the step done / failed
+                    content = ev.get("message", {}).get("content", [])
+                    for blk in content if isinstance(content, list) else []:
+                        if blk.get("type") == "tool_result":
+                            self.out.put(("step_done", {"id": blk.get("tool_use_id"),
+                                                        "error": bool(blk.get("is_error"))}))
                 elif t == "result":
                     self.out.put(("result", {"ok": not ev.get("is_error"), "text": ev.get("result", ""),
                                              "session": ev.get("session_id"), "s": time.time() - self.t0,
@@ -253,6 +313,24 @@ class ClaudeSession:
             subprocess.run(["taskkill", "/T", "/F", "/PID", str(p.pid)],
                            capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW)
         self.busy = False
+
+
+def installed_version():
+    try:
+        with open(os.path.join(HERE, "..", "VERSION"), encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return "?"
+
+
+def check_update(q, force=False):
+    """Background: ask GitHub once a day whether a newer version is out; the answer goes to the tab's queue."""
+    try:
+        info = updater.check(installed_version(), UPDATE_STATE, force=force)
+        if info:
+            q.put(("update", info))
+    except Exception as e:
+        log(f"update check failed: {e!r}"[:200])
 
 
 def start_worker():
@@ -294,6 +372,12 @@ class Bridge:
         os.makedirs(self.set["save_dir"], exist_ok=True)
         self.exe = find_claude()
         self.pending_text = ""
+        self.steps = []                 # this turn: [{"id", "label", "state": now / done / fail, "raw"}]
+        self.update_info = None
+        self.mgr = None                 # background agents (agents.py), created on the first [[AGENT]] line
+        self.ag = {}                    # id -> latest agent dict, in arrival order
+        self.ag_open = set()
+        self.agent_report = None        # results waiting for the main chat to be free
         self.last_request = ""
         self.last_reply = ""
 
@@ -350,10 +434,10 @@ class Bridge:
         who_cls = who.split()[0]
         err = " err" if "err" in who else ""
         name, av = ("Claude", "C") if who_cls == "ai" else (self.t("you"), self.t("you_av"))
-        role = '<span class="role">ENG</span>' if who_cls == "ai" else ""
+        role = ""
         tm = t or time.strftime("%H:%M")
         self.add(f'<div class="row {who_cls}"><div class="av">{av}</div><div class="body">'
-                 f'<div class="who">{name}{role}<span class="tm">{esc(tm)}</span></div>'
+                 f'<div class="who"><span class="nm">{esc(name)}</span>{role} <span class="tm">{esc(tm)}</span></div>'
                  f'<div class="msg{err}">{self.rich(text)}{card}</div></div></div>')
 
     def card(self, buttons):
@@ -366,13 +450,124 @@ class Bridge:
 
     def busy(self, on):
         self.el("busy").style.display = "block" if on else "none"
-        self.el("stop").style.display = "inline-block" if on else "none"
+        self.el("stop").style.display = "inline-block" if on or (self.mgr and self.mgr.active()) else "none"
         self.el("send").style.display = "none" if on else "inline-block"
         if not on:
-            self.el("step").innerText = ""
+            self.el("steps").innerHTML = ""
+
+    # ---- background agents
+    def launch_agent(self, a):
+        """One background agent: a one-shot headless Claude Code with AGENT_PROMPT.md, its own folder for files and
+        its own conversation folder."""
+        safe = "".join(ch for ch in a.name if ch.isalnum() or ch in "-_ ").strip().replace(" ", "_") or a.id
+        work = os.path.join(self.set["save_dir"], "agents", safe)
+        conv = os.path.join(AGENT, "agents", f"{time.strftime('%Y%m%d-%H%M%S')}-{a.id}")
+        os.makedirs(work, exist_ok=True)
+        os.makedirs(conv, exist_ok=True)
+        prompt = (a.task + f"\n\nYour folder for files: {work}\nLanguage: {self.lang}")
+        cmd = [self.exe, "-p", prompt, "--output-format", "stream-json", "--verbose",
+               "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
+               "--append-system-prompt-file", os.path.join(AGENT, "AGENT_PROMPT.md"),
+               "--permission-mode", "acceptEdits", "--allowedTools", *ALLOWED_TOOLS,
+               "--disallowedTools", "PowerShell", "--tools", "Bash,Read,Write,Edit,Glob,Grep",
+               "--effort", self.set.get("effort", "medium"), "--add-dir", self.set["save_dir"]]
+        log(f"agent {a.id} {a.name!r} started")
+        return subprocess.Popen(cmd, cwd=conv, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, encoding="utf-8", errors="replace",
+                                creationflags=subprocess.CREATE_NO_WINDOW)
+
+    def start_agents(self, items):
+        if self.mgr is None:
+            self.mgr = agentsmod.AgentManager(self.launch_agent, self.q, lang=self.lang,
+                                              max_parallel=self.max_agents())
+        if not self.mgr.active():
+            self.mgr.clear_finished()
+            self.ag = {}
+        self.sys(self.t("agents_start", n=len(items), m=self.mgr.max))
+        for name, task in items:
+            self.mgr.add(name, task)
+        try:
+            w = start_worker()
+            self.worker = w or self.worker
+        except Exception as e:
+            log(f"worker start failed: {e!r}"[:200])
+
+    def max_agents(self):
+        n = self.set.get("max_agents", agentsmod.MAX_PARALLEL)
+        return min(agentsmod.MAX_LIMIT, max(1, int(n))) if str(n).isdigit() else agentsmod.MAX_PARALLEL
+
+    def show_agents(self):
+        rows = list(self.ag.values())
+        bar = self.el("agbar")
+        if not rows:
+            bar.style.display = "none"
+            return
+        bar.style.display = "block"
+        if self.mgr and self.mgr.active():          # Stop reaches the agents even while the main chat is idle
+            self.el("stop").style.display = "inline-block"
+        elif not (self.run_ and self.run_.is_alive()):
+            self.el("stop").style.display = "none"
+        self.el("flow").innerHTML = agentsmod.flow_svg(rows, self.lang)
+        html_ = ""
+        for a in rows:
+            html_ += agentsmod.agent_card(a, self.lang)
+            if a["id"] in self.ag_open:
+                det = "".join(f'<div class="st done"><span class="ico">&#10003;</span>{esc(x)}</div>'
+                              for x in a["steps"][-8:])
+                html_ += f'<div class="adet">{det}<div class="atx">{self.rich(a["text"])}</div></div>' \
+                    if a["text"] else f'<div class="adet">{det}</div>'
+        self.el("agents").innerHTML = html_
+
+    def flush_agent_report(self):
+        """Hand the agents' results to the main Claude as soon as it is free."""
+        if self.agent_report and not (self.run_ and self.run_.is_alive()):
+            msg, self.agent_report = self.agent_report, None
+            self.send(msg, echo=False)
+
+    def img_card(self, paths):
+        return "".join(f'<img class="shot" src="file:///{esc(p.replace(chr(92), "/"))}">' for p in paths
+                       if os.path.exists(p))
+
+    def show_steps(self):
+        """The live list under "Working...": the last 5 steps, each one line in plain words."""
+        icon = {"now": '<span class="spin"></span>', "done": "&#10003;", "fail": "&#10007;"}
+        rows = self.steps[-5:]
+        html_ = ""
+        if len(self.steps) > 5:
+            html_ += f'<div class="st more">{esc(self.t("more", n=len(self.steps) - 5))}</div>'
+        for st in rows:
+            html_ += (f'<div class="st {st["state"]}"><span class="ico">{icon[st["state"]]}</span>'
+                      f'{esc(st["label"])}</div>')
+        self.el("steps").innerHTML = html_
+
+    def trace(self, p):
+        """Under the reply: "5 steps · 14 s · 12K tokens"; a click opens the steps."""
+        u = p.get("usage") or {}
+        k = (u.get("input_tokens", 0) + u.get("output_tokens", 0) + u.get("cache_creation_input_tokens", 0)) / 1000
+        line = self.t("trace", n=len(self.steps), s=p["s"]) + (self.t("trace_tokens", k=k) if k >= 1 else "")
+        if p.get("denied"):
+            line += " · " + self.t("denied", n=p["denied"])
+        mark = {"done": "&#10003;", "fail": "&#10007;", "now": "&#10003;"}
+        items = "".join(f'<div class="st {"fail" if s["state"] == "fail" else "done"}"><span class="ico">'
+                        f'{mark[s["state"]]}</span>{esc(s["label"])}</div>' for s in self.steps)
+        self.add(f'<div class="trace" onclick="tog(this)">{esc(line)}</div>'
+                 f'<div class="trace-list" style="display:none">{items}</div>')
+        self.steps = []
+
+    def plan_card(self, plan, buttons=True):
+        import re
+        rows = "".join(f'<div class="pi"><span class="pn">{n}.</span> '
+                       f'{re.sub(r"^<div>|</div>$", "", self.rich(t))}</div>' for n, t in plan)
+        box = f'<div class="plan"><div class="ph">{esc(self.t("plan_head"))}</div>{rows}</div>'
+        if not buttons:
+            return box
+        return (box + self.card([("plan_all", self.t("plan_all_btn"), "ok"),
+                             ("plan_one", self.t("plan_one_btn"), "no"),
+                             ("plan_edit", self.t("plan_edit_btn"), "ghost")]))
 
     def show_info(self):
         self.el("dir").innerText = self.set["save_dir"]
+        self.el("m_agents").innerText = self.t("agents_max", n=self.max_agents())
         self.el("att").innerText = self.t("att", n=", ".join(os.path.basename(a) for a in self.attach)) \
             if self.attach else ""
 
@@ -398,7 +593,7 @@ class Bridge:
             title = _get(doc, "GetTitle")
             path = _get(doc, "GetPathName")
             self.sel_info = {"doc": title, "path": path, "n": n, "types": items}
-            self.sel_txt = title + (" | " + ", ".join(items) if items else "")
+            self.sel_txt = panel_steps.selection_text(title, items, self.lang)
         except Exception as e:
             self.sel_info, self.sel_txt = {"error": repr(e)[:100]}, self.t("no_sw")
 
@@ -472,8 +667,26 @@ class Bridge:
             if text:
                 req.value = ""
                 self.send(text)
-        elif flag == "stop" and self.run_:
-            self.run_.kill()
+        elif flag == "agents_max":                 # menu: 2 -> 3 -> 4 -> 6 -> 8 -> 2 ...
+            steps = [2, 3, 4, 6, 8]
+            cur = self.max_agents()
+            n = next((x for x in steps if x > cur), steps[0])
+            self.set["max_agents"] = n
+            self.save_settings()
+            if self.mgr:
+                self.mgr.max = n
+                self.mgr._schedule()
+            self.show_info()
+            self.sys(self.t("agents_max", n=n))
+        elif flag.startswith("agent:"):
+            aid = flag[6:]
+            self.ag_open.symmetric_difference_update({aid})
+            self.show_agents()
+        elif flag == "stop" and (self.run_ or self.mgr):
+            if self.mgr:
+                self.mgr.stop_all()
+            if self.run_:
+                self.run_.kill()
             if self.worker and self.worker.poll() is None:     # a script may be running in it
                 subprocess.run(["taskkill", "/T", "/F", "/PID", str(self.worker.pid)], capture_output=True,
                                creationflags=subprocess.CREATE_NO_WINDOW)
@@ -481,6 +694,11 @@ class Bridge:
             self.sys(self.t("stopped"))
             self.chatlog("system", "stopped")
         elif flag == "new":
+            if self.mgr:
+                self.mgr.stop_all()
+                self.mgr.clear_finished()
+            self.ag = {}
+            self.show_agents()
             if self.run_ and self.run_.is_alive():
                 self.run_.kill()
             self.set.pop("session", None)
@@ -502,6 +720,24 @@ class Bridge:
             self.sys(self.t("lang_set"))
         elif flag in ("approve", "reject"):
             self.send(self.t("approved") if flag == "approve" else self.t("rejected"))
+        elif flag in ("plan_all", "plan_one", "next", "halt"):
+            self.send(self.t({"plan_all": "plan_all_msg", "plan_one": "plan_one_msg", "next": "next_msg",
+                              "halt": "halt_msg"}[flag]))
+        elif flag == "update_now" and self.update_info:
+            if self.run_ and self.run_.is_alive():
+                self.sys(self.t("busy"))
+                return
+            self.sys(self.t("updating"))
+            log(f"update to {self.update_info['ref']}")
+            updater.start_update(self.update_info["ref"])
+            open(STOP, "w").close()          # close this tab cleanly; the installer starts the new one
+        elif flag == "update_later":
+            updater.snooze(UPDATE_STATE)
+            self.sys(self.t("later_ok"))
+        elif flag == "update_notes" and self.update_info and self.update_info.get("url"):
+            os.startfile(self.update_info["url"])          # the browser, not this pane
+        elif flag == "plan_edit":
+            self.el("req").focus()
 
     def handle_event(self, kind, p):
         if kind == "session" and p:
@@ -509,13 +745,27 @@ class Bridge:
         elif kind == "text":
             if p.startswith("Not logged in"):
                 return
-            show = p.replace("[[APPROVE]]", "").strip()
-            if show:
-                self.bubble(show)
+            show, plan, _marker = panel_steps.parse_reply(p)
+            show, items = panel_steps.parse_agents(show)
+            show, imgs = panel_steps.parse_images(show)
+            if show or plan or imgs:
+                self.bubble(show, card=(self.plan_card(plan) if plan else "") + self.img_card(imgs))
+            if items:
+                self.start_agents(items)
             self.last_reply = p
             self.chatlog("claude", p)
         elif kind == "step":
-            self.el("step").innerText = p          # one live line under "Claude is working", not a list
+            for st in self.steps:
+                if st["state"] == "now":
+                    st["state"] = "done"
+            self.steps.append({"id": p.get("id"), "state": "now",
+                               "label": panel_steps.step_label(p.get("tool"), p.get("input"), self.lang)})
+            self.show_steps()
+        elif kind == "step_done":
+            for st in self.steps:
+                if st["id"] == p.get("id"):
+                    st["state"] = "fail" if p.get("error") else "done"
+            self.show_steps()
         elif kind == "result":
             txt = p.get("text") or ""
             sid = p.get("session") or getattr(self, "new_session", None)
@@ -531,11 +781,21 @@ class Bridge:
                 else:
                     self.bubble(txt or "error", "ai err")
             elif txt and txt.strip() != self.last_reply.strip():
-                self.bubble(txt.replace("[[APPROVE]]", "").strip())
-            self.sys(self.t("done", s=p["s"]) + (" | " + self.t("denied", n=p["denied"]) if p.get("denied") else ""))
-            if "[[APPROVE]]" in (txt + self.last_reply):
+                show, plan, _m = panel_steps.parse_reply(txt)
+                show, items = panel_steps.parse_agents(show)
+                show, imgs = panel_steps.parse_images(show)
+                if show or plan or imgs:
+                    self.bubble(show, card=(self.plan_card(plan) if plan else "") + self.img_card(imgs))
+                if items:
+                    self.start_agents(items)
+            self.trace(p)
+            marker = panel_steps.parse_reply(txt + "\n" + self.last_reply)[2]
+            if marker == "approve":
                 self.bubble(self.t("approve_q"), card=self.card([("approve", self.t("approve_btn"), "ok"),
                                                                    ("reject", self.t("reject_btn"), "no")]))
+            elif marker == "next":
+                self.bubble("", card=self.card([("next", self.t("next_btn"), "ok"),
+                                                ("halt", self.t("halt_btn"), "no")]))
             log(f"result ok={p['ok']} s={p['s']:.1f} denied={p.get('denied')}")
             u = p.get("usage") or {}
             tf = os.path.join(PANEL, "tokens.csv")
@@ -547,6 +807,23 @@ class Bridge:
                 f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')},{p.get('session')},{p['ok']},{p['s']:.1f},"
                         f"{p.get('turns')},{u.get('input_tokens', 0)},{u.get('cache_creation_input_tokens', 0)},"
                         f"{u.get('cache_read_input_tokens', 0)},{u.get('output_tokens', 0)},{p.get('cost')},{req}\n")
+        elif kind == "agent":
+            old = self.ag.get(p["id"], {}).get("state")
+            self.ag[p["id"]] = p
+            self.show_agents()
+            if old == "running" and p["state"] in ("done", "failed"):
+                key = "agent_done" if p["state"] == "done" else "agent_failed"
+                self.bubble(self.t(key, name=p["name"]), card=self.img_card(p["images"]))
+        elif kind == "agents_done":
+            self.agent_report = agentsmod.results_message(p, self.lang)
+            self.sys(self.t("agents_report"))
+            self.flush_agent_report()
+        elif kind == "update" and p:
+            self.update_info = p
+            cur = self.t("update_q", v=p["version"], cur=installed_version())
+            self.bubble(cur, card=self.card([("update_now", self.t("update_btn"), "ok"),
+                                             ("update_later", self.t("later_btn"), "no"),
+                                             ("update_notes", self.t("notes_btn"), "ghost")]))
         elif kind == "raw":
             log(f"raw: {p}")
         elif kind == "error":
@@ -554,6 +831,7 @@ class Bridge:
             log(f"error: {p}")
         elif kind == "end":
             self.busy(False)
+            self.flush_agent_report()
 
     # ---- login (claude auth status / login) ----
     def logged_in(self):
@@ -589,8 +867,9 @@ class Bridge:
         except (OSError, ValueError):
             return False
         for d in rows[-40:]:
-            self.bubble(d["text"].replace("[[APPROVE]]", "").strip(), "me" if d["who"] == "user" else "ai",
-                        t=d.get("t", "")[11:16])
+            show, plan, _m = panel_steps.parse_reply(d["text"])
+            self.bubble(show, "me" if d["who"] == "user" else "ai", t=d.get("t", "")[11:16],
+                        card=self.plan_card(plan, buttons=False) if plan else "")
         if rows:
             self.sys(self.t("resumed"))
         return bool(rows)
@@ -603,7 +882,12 @@ class Bridge:
         if not self.logged_in():
             self.offer_login()
         last_sel = 0.0
+        last_upd = time.time()
+        threading.Thread(target=check_update, args=(self.q,), daemon=True).start()
         while not os.path.exists(STOP):
+            if time.time() - last_upd > 3600:            # the tab may stay open for days: look again hourly
+                last_upd = time.time()                   # (updater.check itself asks GitHub once a day)
+                threading.Thread(target=check_update, args=(self.q,), daemon=True).start()
             flag = self.el("flag")
             f = flag.value
             if f:
@@ -663,20 +947,34 @@ def watch():
     pythoncom.CoInitialize()
     log("watcher started")
     while not os.path.exists(STOP):
-        if not sw_running():
-            time.sleep(3)
-            continue
-        time.sleep(8)               # SolidWorks registers itself before its window is ready
+        try:                        # nothing may end the watcher but `stop`: it is the only thing that brings
+            watch_once()            # the tab back the next time SolidWorks opens
+        except Exception as e:
+            log(f"watcher: {e!r}"[:300])
+            time.sleep(10)
+    log("watcher stopped")
+
+
+def watch_once():
+    """One SolidWorks session: wait for it, add the tab, keep it while SolidWorks runs."""
+    if not sw_running():
+        time.sleep(3)
+        return
+    time.sleep(8)                   # SolidWorks registers itself before its window is ready
+    for attempt in range(1, 5):     # a slow start (big add-ins, a license dialog) can refuse the first try
         try:
             r = run(clear_stop=False)
+            break
         except Exception as e:
-            log(f"watcher: run failed: {e!r}"[:300])
+            log(f"watcher: run failed (try {attempt}): {e!r}"[:300])
             r = "error"
-        while sw_running() and not os.path.exists(STOP):   # same instance still up (closed tab / refused)
-            time.sleep(5)
-            if r is None:           # the tab ended while SolidWorks lives on (e.g. after an error): re-add
-                break
-    log("watcher stopped")
+            if os.path.exists(STOP) or not sw_running():
+                return
+            time.sleep(10 * attempt)
+    while sw_running() and not os.path.exists(STOP):   # same instance still up (closed tab / refused)
+        time.sleep(5)
+        if r is None:               # the tab ended while SolidWorks lives on (e.g. after an error): re-add
+            break
 
 
 def run(clear_stop=True):
@@ -686,12 +984,18 @@ def run(clear_stop=True):
     if clear_stop and os.path.exists(STOP):
         os.remove(STOP)
     shutil.copyfile(os.path.join(SRC, "html", "panel.html"), os.path.join(PANEL, "panel.html"))
-    shutil.copyfile(os.path.join(HERE, "swx.py"), os.path.join(PANEL, "swx.py"))
+    old_swx = os.path.join(PANEL, "swx.py")     # before v2.5 a copy lived here; swx.py now needs contract.py beside it
+    if os.path.exists(old_swx):
+        os.remove(old_swx)
     with open(os.path.join(SRC, "PANEL_PROMPT.md"), encoding="utf-8") as f:
-        prompt = f.read().replace("{SWX}", os.path.join(PANEL, "swx.py")).replace("{SCRIPTS}", HERE) \
+        prompt = f.read().replace("{SWX}", os.path.join(HERE, "swx.py")).replace("{SCRIPTS}", HERE) \
             .replace("{SKILL}", os.path.dirname(HERE))
     with open(os.path.join(AGENT, "PANEL_PROMPT.md"), "w", encoding="utf-8") as f:
         f.write(prompt)
+    with open(os.path.join(SRC, "AGENT_PROMPT.md"), encoding="utf-8") as f:
+        aprompt = f.read().replace("{SWX}", os.path.join(HERE, "swx.py")).replace("{SKILL}", os.path.dirname(HERE))
+    with open(os.path.join(AGENT, "AGENT_PROMPT.md"), "w", encoding="utf-8") as f:
+        f.write(aprompt)
     icon = os.path.join(PANEL, "claude16.bmp")
     icon_bmp(icon)
     pythoncom.CoInitialize()
@@ -720,6 +1024,8 @@ def run(clear_stop=True):
     finally:
         if br and br.claude:
             br.claude.kill()
+        if br and br.mgr:
+            br.mgr.stop_all()
         try:
             _get(tp, "DeleteView")
         except Exception:

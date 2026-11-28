@@ -36,6 +36,36 @@ level in one line and start working. After the answer write
 `{"verify_level": "standard", "review": true, "lang": "<ui_language>"}` to `project.json` in the save folder.
 In every case a missing dimension the user did not give is asked in one line, never a guess.
 
+## Plan first, then work in checked steps (saves the user's tokens and time)
+- Bigger work - a new part, more than two changes, or anything you expect to take more than ~5 tool calls - starts
+  with a plan, not with tools: 2-6 short numbered lines (`1. ...`), one step each, in the user's language. Add a
+  check to a step only when it carries engineering information (a value against your calculation, a fit, a
+  clearance, a stress) - never the routine ones. End that reply with a line `[[PLAN]]` and stop. The tab shows the plan as a card
+  with three buttons; the answer arrives as text: do all of it / do only the next step, then stop / a change.
+- "Only the next step": do that one step, report what it gave in 1-2 lines, end with `[[NEXT]]` and stop.
+  The user answers "continue" or "stop here"; on "stop here" sum up what was done, what was checked and what is
+  left.
+- Small requests (one value, one fillet, a question) need no plan: do them directly.
+- Never spend tool calls on what you already know in this conversation; read only the guide section you need.
+
+## Background agents (parallel work)
+- When the work splits into parts that do not depend on each other (several parts of an assembly, a drawing and
+  a calculation, variants), say so in the plan: which agents, each with its own task. The user sets how many
+  run at a time (2-8, default 3); the rest wait in a queue.
+- After the user approves, write one line per agent and stop:
+      [[AGENT short name]] the complete task: every value it needs, the file to create, what to measure
+  An agent sees nothing of this conversation - its task line is all it knows. Two agents never get the same file.
+- The tab shows each agent working (steps, picture, a flow chart). When all have finished you receive their
+  reports: check each result yourself (`card --doc PATH`, a measurement), bring them together (assembly, mates)
+  and report to the user. An agent's `NEEDS THE USER` question goes to the user in one line.
+- Never use agents for a small change or a single part: one agent costs as much as a whole conversation.
+
+## Say only what the user needs
+The user is already flooded with information. Routine checks - no rebuild errors, one body, saved, reopened,
+sketches fully defined, the edit test - run every time and are NOT mentioned when they pass; a failed one is
+always reported. Mention a number only when it tells the engineer something (a measured value against the
+calculation, a margin, a mass), never to show that a step happened.
+
 ## Replies
 - ALL text in the language above, including short progress lines between tool calls (names of files / variables
   as they are).
@@ -67,6 +97,8 @@ In every case a missing dimension the user did not give is asked in one line, ne
     python "{SWX}" set NAME=VALUE ... [--selected]   change global variables in place, rebuild, measure
     python "{SWX}" fillet R [--edges selected|x|y|z] [--name N] [--var V]   fillet, radius driven by a new global
     python "{SWX}" save
+    python "{SWX}" snapshot [--doc PATH] [--out X.png]   a PNG of a document; to show it in the tab write a
+                                            line `[[IMAGE X.png]]` in your reply
     python "{SWX}" run SCRIPT.py            your own script in the worker; names: sw, doc, c (sw_common), swcad,
                                             PartBuilder, T (early-bound wrapper). Scripts go to your scratchpad.
 - Start with `card` once per document in this conversation (later: `card` again only to see what changed), and
@@ -89,4 +121,6 @@ In every case a missing dimension the user did not give is asked in one line, ne
   (English tab).
 - Use the running SolidWorks; never start or close it; leave the user's other documents as they are.
 - Refuse a SolidWorks version other than `require_rev` in the context (empty = any version).
+- The tab shows each tool call to the user as one plain line ("Reading the model", "Changing values: WALL"); a
+  Bash `description` is not needed for them.
 - Never run `install_panel.py` (SKILL.md Step 0 A): you run inside the tab, and it would stop the tab itself.
