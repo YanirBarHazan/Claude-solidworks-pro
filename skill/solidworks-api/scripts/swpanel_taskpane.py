@@ -26,6 +26,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import panel_steps  # noqa: E402
+import updater  # noqa: E402
 
 PANEL = os.path.join(os.path.expanduser("~"), ".solidworks-api", "swpanel")
 AGENT = os.path.join(PANEL, "agent")              # fixed cwd: Claude Code stores conversations per folder
@@ -34,6 +35,7 @@ SRC = os.path.join(HERE, "..", "swpanel")
 REQUIRE = os.environ.get("SW_REQUIRE_REV", "")   # "" = any version; set e.g. "27." to lock a project to 2019
 STOP = os.path.join(PANEL, "taskpane.stop")
 SETTINGS = os.path.join(PANEL, "settings.json")
+UPDATE_STATE = os.path.join(PANEL, "update.json")
 DEFAULT_DIR = os.path.join(os.path.expanduser("~"), "Documents", "Claude SolidWorks")
 SEL_TYPES = {1: "edge", 2: "face", 3: "vertex", 4: "plane", 5: "axis", 9: "sketch segment", 11: "sketch point",
              20: "component", 22: "feature", 25: "dimension", 31: "sketch"}  # swSelectType_e (subset)
@@ -80,6 +82,12 @@ TXT = {                      # every line the tab itself shows; panel.html holds
         "halt_btn": "עצור כאן",
         "next_msg": "המשך לשלב הבא.",
         "halt_msg": "עצור כאן: סכם מה נעשה, מה נבדק ומה נשאר.",
+        "update_q": "יש גרסה חדשה: {v} (אצלך {cur}). לעדכן?",
+        "update_btn": "עדכן עכשיו",
+        "later_btn": "לא עכשיו",
+        "notes_btn": "מה חדש",
+        "updating": "מעדכן... הלשונית תיסגר ותחזור לבד בעוד כחצי דקה. חלון ההתקנה יראה את ההתקדמות.",
+        "later_ok": "אזכיר מחר.",
     },
     "en": {
         "hello": "Hi. Select something in SolidWorks and tell me what to do.",
@@ -121,6 +129,13 @@ TXT = {                      # every line the tab itself shows; panel.html holds
         "halt_btn": "Stop here",
         "next_msg": "Continue with the next step.",
         "halt_msg": "Stop here: sum up what was done, what was checked and what is left.",
+        "update_q": "A new version is out: {v} (you have {cur}). Update now?",
+        "update_btn": "Update now",
+        "later_btn": "Not now",
+        "notes_btn": "What's new",
+        "updating": "Updating... the tab closes and comes back by itself in about half a minute. The installer "
+                    "window shows the progress.",
+        "later_ok": "I'll remind you tomorrow.",
     },
 }
 LANGS = tuple(TXT)
@@ -289,6 +304,24 @@ class ClaudeSession:
         self.busy = False
 
 
+def installed_version():
+    try:
+        with open(os.path.join(HERE, "..", "VERSION"), encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError:
+        return "?"
+
+
+def check_update(q, force=False):
+    """Background: ask GitHub once a day whether a newer version is out; the answer goes to the tab's queue."""
+    try:
+        info = updater.check(installed_version(), UPDATE_STATE, force=force)
+        if info:
+            q.put(("update", info))
+    except Exception as e:
+        log(f"update check failed: {e!r}"[:200])
+
+
 def start_worker():
     """Warm SolidWorks worker (swpanel_worker.py); returns the Popen, or None when one already answers."""
     sys.path.insert(0, HERE)
@@ -329,6 +362,7 @@ class Bridge:
         self.exe = find_claude()
         self.pending_text = ""
         self.steps = []                 # this turn: [{"id", "label", "state": now / done / fail, "raw"}]
+        self.update_info = None
         self.last_request = ""
         self.last_reply = ""
 
@@ -577,6 +611,19 @@ class Bridge:
         elif flag in ("plan_all", "plan_one", "next", "halt"):
             self.send(self.t({"plan_all": "plan_all_msg", "plan_one": "plan_one_msg", "next": "next_msg",
                               "halt": "halt_msg"}[flag]))
+        elif flag == "update_now" and self.update_info:
+            if self.run_ and self.run_.is_alive():
+                self.sys(self.t("busy"))
+                return
+            self.sys(self.t("updating"))
+            log(f"update to {self.update_info['ref']}")
+            updater.start_update(self.update_info["ref"])
+            open(STOP, "w").close()          # close this tab cleanly; the installer starts the new one
+        elif flag == "update_later":
+            updater.snooze(UPDATE_STATE)
+            self.sys(self.t("later_ok"))
+        elif flag == "update_notes" and self.update_info and self.update_info.get("url"):
+            os.startfile(self.update_info["url"])          # the browser, not this pane
         elif flag == "plan_edit":
             self.el("req").focus()
 
@@ -640,6 +687,12 @@ class Bridge:
                 f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')},{p.get('session')},{p['ok']},{p['s']:.1f},"
                         f"{p.get('turns')},{u.get('input_tokens', 0)},{u.get('cache_creation_input_tokens', 0)},"
                         f"{u.get('cache_read_input_tokens', 0)},{u.get('output_tokens', 0)},{p.get('cost')},{req}\n")
+        elif kind == "update" and p:
+            self.update_info = p
+            cur = self.t("update_q", v=p["version"], cur=installed_version())
+            self.bubble(cur, card=self.card([("update_now", self.t("update_btn"), "ok"),
+                                             ("update_later", self.t("later_btn"), "no"),
+                                             ("update_notes", self.t("notes_btn"), "ghost")]))
         elif kind == "raw":
             log(f"raw: {p}")
         elif kind == "error":
@@ -697,7 +750,12 @@ class Bridge:
         if not self.logged_in():
             self.offer_login()
         last_sel = 0.0
+        last_upd = time.time()
+        threading.Thread(target=check_update, args=(self.q,), daemon=True).start()
         while not os.path.exists(STOP):
+            if time.time() - last_upd > 3600:            # the tab may stay open for days: look again hourly
+                last_upd = time.time()                   # (updater.check itself asks GitHub once a day)
+                threading.Thread(target=check_update, args=(self.q,), daemon=True).start()
             flag = self.el("flag")
             f = flag.value
             if f:
@@ -757,20 +815,34 @@ def watch():
     pythoncom.CoInitialize()
     log("watcher started")
     while not os.path.exists(STOP):
-        if not sw_running():
-            time.sleep(3)
-            continue
-        time.sleep(8)               # SolidWorks registers itself before its window is ready
+        try:                        # nothing may end the watcher but `stop`: it is the only thing that brings
+            watch_once()            # the tab back the next time SolidWorks opens
+        except Exception as e:
+            log(f"watcher: {e!r}"[:300])
+            time.sleep(10)
+    log("watcher stopped")
+
+
+def watch_once():
+    """One SolidWorks session: wait for it, add the tab, keep it while SolidWorks runs."""
+    if not sw_running():
+        time.sleep(3)
+        return
+    time.sleep(8)                   # SolidWorks registers itself before its window is ready
+    for attempt in range(1, 5):     # a slow start (big add-ins, a license dialog) can refuse the first try
         try:
             r = run(clear_stop=False)
+            break
         except Exception as e:
-            log(f"watcher: run failed: {e!r}"[:300])
+            log(f"watcher: run failed (try {attempt}): {e!r}"[:300])
             r = "error"
-        while sw_running() and not os.path.exists(STOP):   # same instance still up (closed tab / refused)
-            time.sleep(5)
-            if r is None:           # the tab ended while SolidWorks lives on (e.g. after an error): re-add
-                break
-    log("watcher stopped")
+            if os.path.exists(STOP) or not sw_running():
+                return
+            time.sleep(10 * attempt)
+    while sw_running() and not os.path.exists(STOP):   # same instance still up (closed tab / refused)
+        time.sleep(5)
+        if r is None:               # the tab ended while SolidWorks lives on (e.g. after an error): re-add
+            break
 
 
 def run(clear_stop=True):
