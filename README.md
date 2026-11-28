@@ -2,14 +2,15 @@
 
 ### Describe the part. Claude builds it in SolidWorks, measures it, and proves it works.
 
-[![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial-orange.svg)](LICENSE) [![Commercial license](https://img.shields.io/badge/commercial%20use-license%20required-red.svg)](COMMERCIAL.md)
+[![License: PolyForm Shield](https://img.shields.io/badge/license-PolyForm%20Shield-blue.svg)](LICENSE) [![Plans: Free | Pro | Company](https://img.shields.io/badge/plans-Free%20%7C%20Pro%20%7C%20Company-8A2BE2.svg)](PLANS.md)
 ![SolidWorks 2019 | 2025](https://img.shields.io/badge/SolidWorks-2019%20%7C%202025-red)
 ![Claude Code skill](https://img.shields.io/badge/Claude%20Code-skill-orange)
 ![Hebrew + English](https://img.shields.io/badge/language-Hebrew%20%7C%20English-blue)
 
-> **Free for personal use, study and research. Companies need a commercial license.**
-> Engineers at a company, paid client work, or building it into a product: that is commercial use.
-> **[Get a commercial license on LinkedIn](https://www.linkedin.com/in/yanir-hazan)** · [What counts as commercial](COMMERCIAL.md)
+
+> **Free for everyone, including at work.** Need more? **Pro** adds sheet metal, DXF → flat parts, simulation and a
+> manufacturing package, with new features every month. **Company** builds in your templates and standards.
+> [Compare plans](PLANS.md) · **[Company version: let's talk on LinkedIn](https://www.linkedin.com/in/yanir-hazan)**
 
 [עברית](README.he.md) · [Getting started](docs/getting-started.md) · [How it works](docs/how-it-works.md) · [Changelog](docs/changelog/README.md) · [Example project](examples/desk-agent/README.md)
 
@@ -165,7 +166,7 @@ assets/                 images and the demo video
 
 ## License
 
-[PolyForm Noncommercial 1.0.0](LICENSE): free for personal use, study, research and noncommercial organizations. **Commercial use (any use at or for a company) needs a paid license: [details](COMMERCIAL.md), [contact on LinkedIn](https://www.linkedin.com/in/yanir-hazan).** Versions up to v2.4.0 were released under MIT and stay MIT.
+[PolyForm Shield 1.0.0](LICENSE): free to use anywhere, including at work and at a company. Not allowed: selling it or building a competing product from it. Pro and company plans: [PLANS.md](PLANS.md). Versions up to v2.4.0 were released under MIT and stay MIT.
 
 SolidWorks is a trademark of Dassault Systèmes. This project is not affiliated with Dassault Systèmes or Anthropic.
 
