@@ -1,6 +1,6 @@
 {
   "contract": "worker_commands",
-  "version": 1,
+  "version": 2,
   "about": "The commands of the warm SolidWorks worker (scripts/swpanel_worker.py). One source of truth for the worker's dispatch, the swx.py client, the MCP server (mcp/server.py) and the tab's prompt; tests/test_contracts.py fails when any of them drifts from this file. Units: mm, mm2, mm3.",
   "commands": {
     "ping": {
@@ -13,7 +13,16 @@
       "summary": "Compact summary of the active model: globals, what drives what, components, patterns, named features, size, rebuild errors, and what changed since the last card of this file.",
       "changes_model": false,
       "args": [
-        {"name": "--full", "kind": "flag", "help": "no truncation of long lists"}
+        {
+          "name": "--full",
+          "kind": "flag",
+          "help": "no truncation of long lists"
+        },
+        {
+          "name": "--doc",
+          "kind": "option",
+          "help": "a document by full path instead of the active one: opened hidden if not open, never made active (background agents)"
+        }
       ],
       "result": "text (printed)"
     },
@@ -21,7 +30,16 @@
       "summary": "Active document, the user's selection with its geometry (mm, part and assembly coordinates) and the part size.",
       "changes_model": false,
       "args": [
-        {"name": "--full", "kind": "flag", "help": "also the raw equations and the feature list"}
+        {
+          "name": "--full",
+          "kind": "flag",
+          "help": "also the raw equations and the feature list"
+        },
+        {
+          "name": "--doc",
+          "kind": "option",
+          "help": "a document by full path instead of the active one: opened hidden if not open, never made active (background agents)"
+        }
       ],
       "result": "{doc, path, kind, unsaved_changes, config, selection[], size}"
     },
@@ -29,8 +47,23 @@
       "summary": "Change global variables in place (as in Tools > Equations), rebuild and measure before / after.",
       "changes_model": true,
       "args": [
-        {"name": "assignments", "kind": "list", "required": true, "pattern": "NAME=VALUE", "help": "one or more, e.g. WALL=3 HOLE_D=6.6"},
-        {"name": "--selected", "kind": "flag", "help": "in the part / sub-assembly of the selected component"}
+        {
+          "name": "assignments",
+          "kind": "list",
+          "required": true,
+          "pattern": "NAME=VALUE",
+          "help": "one or more, e.g. WALL=3 HOLE_D=6.6"
+        },
+        {
+          "name": "--selected",
+          "kind": "flag",
+          "help": "in the part / sub-assembly of the selected component"
+        },
+        {
+          "name": "--doc",
+          "kind": "option",
+          "help": "a document by full path instead of the active one: opened hidden if not open, never made active (background agents)"
+        }
       ],
       "result": "{doc, changed[{name, old, expr, new}], rebuild_errors, size_before, size_after, top_errors, saved}"
     },
@@ -38,26 +71,95 @@
       "summary": "Fillet edges; the radius is driven by a new global variable so it can be edited later.",
       "changes_model": true,
       "args": [
-        {"name": "radius", "kind": "number", "required": true, "help": "mm"},
-        {"name": "--edges", "kind": "option", "choices": ["selected", "x", "y", "z"], "default": "selected", "help": "the selected edges, or every straight edge parallel to an axis"},
-        {"name": "--name", "kind": "option", "help": "feature name (default FILLET<n>)"},
-        {"name": "--var", "kind": "option", "help": "global variable for the radius (default <name>_R)"}
+        {
+          "name": "radius",
+          "kind": "number",
+          "required": true,
+          "help": "mm"
+        },
+        {
+          "name": "--edges",
+          "kind": "option",
+          "choices": [
+            "selected",
+            "x",
+            "y",
+            "z"
+          ],
+          "default": "selected",
+          "help": "the selected edges, or every straight edge parallel to an axis"
+        },
+        {
+          "name": "--name",
+          "kind": "option",
+          "help": "feature name (default FILLET<n>)"
+        },
+        {
+          "name": "--var",
+          "kind": "option",
+          "help": "global variable for the radius (default <name>_R)"
+        }
       ],
       "result": "{feature, edges, radius_mm, global, dimension, rebuild_errors, size_before, size_after, saved}"
     },
     "save": {
       "summary": "Save the active document (silent). A document that was never saved needs a script with save_as.",
       "changes_model": true,
-      "args": [],
+      "args": [
+        {
+          "name": "--doc",
+          "kind": "option",
+          "help": "a document by full path instead of the active one: opened hidden if not open, never made active (background agents)"
+        }
+      ],
       "result": "{doc, saved, path, result}"
     },
     "run": {
       "summary": "Run a Python script in the warm worker. Names ready in the script: sw, doc, c (sw_common), swcad, PartBuilder, T.",
       "changes_model": true,
       "args": [
-        {"name": "script", "kind": "path", "required": true, "help": "path to a .py file"}
+        {
+          "name": "script",
+          "kind": "path",
+          "required": true,
+          "help": "path to a .py file"
+        },
+        {
+          "name": "--background",
+          "kind": "flag",
+          "help": "documents the script creates stay hidden and never become the active one (background agents)"
+        }
       ],
       "result": "what the script printed"
+    },
+    "snapshot": {
+      "summary": "Save a picture (PNG) of a document, for the tab's chat and the agents strip. The document is shown for a moment and the user's active document comes back.",
+      "changes_model": false,
+      "args": [
+        {
+          "name": "--doc",
+          "kind": "option",
+          "help": "full path; default the active document"
+        },
+        {
+          "name": "--out",
+          "kind": "option",
+          "help": "PNG path; default next to the document"
+        },
+        {
+          "name": "--view",
+          "kind": "option",
+          "choices": [
+            "iso",
+            "front",
+            "top",
+            "right"
+          ],
+          "default": "iso",
+          "help": "view orientation"
+        }
+      ],
+      "result": "{doc, png}"
     }
   }
 }

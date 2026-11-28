@@ -13,14 +13,14 @@ L = {
     "he": {"card": "קורא את המודל", "info": "בודק את מה שבחרת", "set": "משנה ערכים: {names}",
            "fillet": "מוסיף פילט R{r}", "save": "שומר את הקובץ", "run": "מבצע פעולה בסולידוורקס",
            "ping": "בודק חיבור לסולידוורקס", "read_doc": "מעיין בהנחיות: {name}", "read": "קורא {name}",
-           "write": "כותב {name}", "edit": "מעדכן {name}", "search": "מחפש בתיעוד", "drawing": "קורא שרטוט {name}",
+           "write": "כותב {name}", "edit": "מעדכן {name}", "search": "מחפש בתיעוד",
            "python": "מחשב", "skill": "טוען ידע מקצועי", "todo": "מסדר את השלבים", "other": "עובד",
            "dir": "בודק את התיקייה"},
     "en": {"card": "Reading the model", "info": "Looking at your selection", "set": "Changing values: {names}",
            "fillet": "Adding a fillet R{r}", "save": "Saving the file", "run": "Working in SolidWorks",
            "ping": "Checking the SolidWorks link", "read_doc": "Reading the guide: {name}", "read": "Reading {name}",
            "write": "Writing {name}", "edit": "Updating {name}", "search": "Searching the guide",
-           "drawing": "Reading drawing {name}", "python": "Calculating", "skill": "Loading know-how",
+           "python": "Calculating", "skill": "Loading know-how",
            "todo": "Organising the steps", "other": "Working", "dir": "Checking the folder"},
 }
 SEL = {"he": {"edge": "קצה", "face": "פאה", "vertex": "נקודה", "plane": "מישור", "axis": "ציר", "component": "רכיב",
@@ -29,10 +29,9 @@ SEL = {"he": {"edge": "קצה", "face": "פאה", "vertex": "נקודה", "plane
        "en": {}}
 GUIDE_NAMES = {"he": {"SKILL": "שיטת העבודה", "pitfalls": "מלכודות API", "manufacturing": "ייצור",
                       "verification": "בדיקות", "assemblies": "הרכבות", "drawings": "שרטוטים",
-                      "sheet_metal": "פח", "drawing_to_part": "משרטוט לחלק", "engineering": "חישובים הנדסיים",
+                      "engineering": "חישובים הנדסיים",
                       "fdm_printing": "הדפסת תלת-ממד"},
-               "en": {"SKILL": "the method", "pitfalls": "API pitfalls", "drawing_to_part": "drawing to part",
-                      "sheet_metal": "sheet metal", "fdm_printing": "3D printing"}}
+               "en": {"SKILL": "the method", "pitfalls": "API pitfalls", "fdm_printing": "3D printing"}}
 
 
 def _base(path):
@@ -65,9 +64,6 @@ def step_label(tool, inp, lang="he"):
             if sub == "fillet":
                 return t["fillet"].format(r=rest[0] if rest else "")
             return t.get(sub, t["run"])
-        if script == "drawing_read.py":
-            arg = words[words.index(names[0]) + 1] if len(words) > words.index(names[0]) + 1 else ""
-            return t["drawing"].format(name=_base(arg))
         if script:
             return t["python"] if script.startswith(("calc", "check")) else t["run"]
         if words and words[0] in ("ls", "dir", "mkdir", "tasklist"):
@@ -129,3 +125,25 @@ def selection_text(doc, types, lang="he"):
         counts[x] = counts.get(x, 0) + 1
     parts = [names.get(k, k) + (f" ({n})" if n > 1 else "") for k, n in counts.items()]
     return f"{doc} · " + ", ".join(parts[:3]) + (" ..." if len(parts) > 3 else "")
+
+
+AGENT_LINE = re.compile(r"^\s*\[\[AGENT\s+([^\]]+)\]\]\s*(.+)$")
+IMAGE_LINE = re.compile(r"\[\[IMAGE\s+(.+?)\]\]")
+
+
+def parse_agents(text):
+    """Lines `[[AGENT name]] task` hand a sub-task to a background agent. -> (text without them, [(name, task)])."""
+    keep, agents = [], []
+    for line in (text or "").split("\n"):
+        m = AGENT_LINE.match(line)
+        if m:
+            agents.append((m.group(1).strip(), m.group(2).strip()))
+        else:
+            keep.append(line)
+    return "\n".join(keep).strip(), agents
+
+
+def parse_images(text):
+    """`[[IMAGE path.png]]` anywhere in a reply -> (text without it, [paths])."""
+    paths = [p.strip().strip('"') for p in IMAGE_LINE.findall(text or "")]
+    return IMAGE_LINE.sub("", text or "").strip(), paths

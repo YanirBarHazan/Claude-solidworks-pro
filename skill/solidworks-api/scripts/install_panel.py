@@ -73,20 +73,6 @@ def ensure_pywin32():
         return False
 
 
-def ensure_extras():
-    """Pure-Python helpers the skill uses beyond pywin32 (drawing reader). Not fatal: only that feature needs it."""
-    missing = []
-    for mod, pkg in (("ezdxf", "ezdxf"),):
-        try:
-            __import__(mod)
-        except ImportError:
-            missing.append(pkg)
-    if not missing:
-        return True
-    r = subprocess.run([sys.executable, "-m", "pip", "install", "--user", "--quiet", *missing])
-    return r.returncode == 0
-
-
 def pythonw():
     w = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
     return w if os.path.exists(w) else sys.executable
@@ -198,9 +184,6 @@ def main():
         say(False, "pywin32 could not be installed: run  python -m pip install pywin32  and try again")
         return 1
     say(True, "pywin32")
-    ex = ensure_extras()
-    say(ex, "drawing reader (ezdxf)" if ex else "ezdxf not installed: only reading .dxf drawings needs it "
-                                                  "(python -m pip install --user ezdxf)")
     n = stop_old()
     say(True, f"old tab stopped ({n} process(es))" if n else "no old tab running")
     copy_app()

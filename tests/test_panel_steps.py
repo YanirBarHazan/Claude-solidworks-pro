@@ -8,8 +8,6 @@ def test_swx_commands_become_plain_words():
         "Changing values: WALL, HOLE_D"
     assert ps.step_label("Bash", {"command": "python swx.py fillet 2 --edges x"}, "en") == "Adding a fillet R2"
     assert ps.step_label("Bash", {"command": "python swx.py run C:/t/a.py"}, "en") == "Working in SolidWorks"
-    assert ps.step_label("Bash", {"command": "python drawing_read.py C:/in/plate.dxf"}, "en") == \
-        "Reading drawing plate.dxf"
 
 
 def test_files_and_guides():

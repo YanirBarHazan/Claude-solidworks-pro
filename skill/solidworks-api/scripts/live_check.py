@@ -2,13 +2,12 @@
 ~/Documents/Claude SolidWorks/live_check_<date-time>/ (a test plate appears in SolidWorks while it runs).
 
     python live_check.py            all steps, one line each, stops at the first failure
-    python live_check.py --probe    only print the sheet-metal API signatures
 
 Steps: 1 worker + contract (a command outside the contract is refused by the worker itself)
        2 a test plate built with PartBuilder, then card / info / set / fillet / save through the worker
-       3 a plate built from a generated DXF (drawing_build): bbox + volume vs the drawing, edit test, reopen
-       4 the sheet-metal API signatures of this SolidWorks (probe_api) for the bend build
-       5 the tab: a checklist for the user (language flag, plan card, steps line) - eyes, not code"""
+       3 background work: a part built hidden (run --background) and read with --doc while the user's document
+         stays active; a snapshot PNG of it
+       4 the tab: a checklist for the user (language flag, plan card, steps line) - eyes, not code"""
 import json
 import os
 import socket
@@ -38,12 +37,6 @@ def raw_worker(cmd, args):
 
 
 def main():
-    import probe_api
-    if "--probe" in sys.argv:
-        for iface, names in probe_api.SHEETMETAL.items():
-            for n, sig in probe_api.signatures(iface, names).items():
-                print(f"{iface}.{n}{sig}")
-        return
     os.makedirs(OUT, exist_ok=True)
     print(f"test files go to {OUT}; a test plate will appear in SolidWorks")
     import swx
@@ -74,41 +67,37 @@ def main():
     r = swx.call("save", [])
     step(2, "save", r["ok"] and r["result"]["saved"])
 
-    # 3. a plate from a drawing
-    import ezdxf
-    import drawing_build
-    import drawing_read
-    doc = ezdxf.new()
-    doc.header["$INSUNITS"] = 4
-    msp = doc.modelspace()
-    msp.add_line((0, 0), (90, 0))
-    msp.add_arc((90, 15), 15, -90, 90)
-    msp.add_line((90, 30), (0, 30))
-    msp.add_line((0, 30), (0, 0))
-    msp.add_circle((15, 15), 3.3)
-    msp.add_circle((60, 15), 3.3)
-    msp.add_text("THK 3", dxfattribs={"insert": (0, -10)})
-    dxf = os.path.join(OUT, "live_plate.dxf")
-    doc.saveas(dxf)
-    plan = drawing_read.plan_sheet_metal(drawing_read.analyze(dxf))
-    step(3, "drawing read: DIRECT", plan["verdict"] == "DIRECT", "; ".join(plan["reasons"]))
-    res = drawing_build.build_flat(sw, plan, os.path.join(OUT, "live_from_dxf.SLDPRT"))
-    step(3, "built from the drawing, volume and bbox proven, reopened", True,
-         f"volume {res['volume']:.2f} mm3 vs drawing {plan['expect']['volume_mm3']:.2f}")
+    # 3. background work: hidden build, --doc, snapshot - the user's document stays the active one
+    script = os.path.join(OUT, "bg_part.py")
+    target = os.path.join(OUT, "live_bg.SLDPRT")
+    with open(script, "w", encoding="utf-8") as f:
+        f.write("pb = PartBuilder(sw, {'D': 30, 'L': 40})\n"
+                "with pb.sketch('Front Plane', 'SK_ROD') as sk:\n    sk.circle(0, 0, 'D')\n"
+                "pb.extrude('SK_ROD', 'L', 'ROD')\n"
+                f"pb.save({target!r})\n")
+    active_before = swx.call("info", [])["result"]["doc"]
+    r = swx.call("run", [script, "--background"])
+    step(3, "a part built in the background", r["ok"] and os.path.exists(target), "" if r["ok"] else r["result"][-300:])
+    r = swx.call("info", [])
+    step(3, "the user's document is still the active one", r["ok"] and r["result"]["doc"] == active_before,
+         r["result"]["doc"] if r["ok"] else r)
+    r = swx.call("set", ["L=50", "--doc", target])
+    vol = r["result"]["size_after"]["volume_mm3"] if r["ok"] else None
+    step(3, "set --doc on the hidden part", r["ok"] and abs(vol - 3.14159265 * 15 ** 2 * 50) < 1, f"volume {vol}")
+    r = swx.call("snapshot", ["--doc", target, "--out", os.path.join(OUT, "live_bg.png")])
+    step(3, "snapshot PNG", r["ok"] and os.path.exists(os.path.join(OUT, "live_bg.png")), r["result"])
+    r = swx.call("info", [])
+    step(3, "the user's document is active again after the snapshot", r["ok"] and r["result"]["doc"] == active_before)
 
-    # 4. sheet-metal API of this version
-    for iface, names in probe_api.SHEETMETAL.items():
-        for n, sig in probe_api.signatures(iface, names).items():
-            print(f"     {iface}.{n}{sig}")
-    step(4, "sheet-metal signatures printed (for the bend build)", True)
-
-    print("\n5. The tab - check by eye in SolidWorks:\n"
+    print("\n4. The tab - check by eye in SolidWorks:\n"
           "   a. the two flags at the top switch Hebrew / English; the choice survives closing SolidWorks\n"
           "   b. under the title: the open document and what you selected, in words (no SEL / DIR strip)\n"
           "   c. while Claude works: a short list of steps in plain words, the current one spinning\n"
           "   d. under each reply: 'N steps · seconds · tokens' - a click opens the steps\n"
           "   e. ask for something bigger (a new part): a plan card with Do it all / One step, then stop / Change\n"
-          "   f. the ... menu: save folder, attach file, new chat, and where files are saved")
+          "   f. the ... menu: save folder, attach file, new chat, agents at a time, and where files are saved\n"
+          "   g. ask for an assembly of three separate parts: the plan offers agents; after 'Do it all' a strip with a\n"
+          "      flow chart and one card per agent appears, each with its step and, at the end, a picture")
 
 
 if __name__ == "__main__":

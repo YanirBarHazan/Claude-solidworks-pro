@@ -48,6 +48,18 @@ In every case a missing dimension the user did not give is asked in one line, ne
 - Small requests (one value, one fillet, a question) need no plan: do them directly.
 - Never spend tool calls on what you already know in this conversation; read only the guide section you need.
 
+## Background agents (parallel work)
+- When the work splits into parts that do not depend on each other (several parts of an assembly, a drawing and
+  a calculation, variants), say so in the plan: which agents, each with its own task. The user sets how many
+  run at a time (2-8, default 3); the rest wait in a queue.
+- After the user approves, write one line per agent and stop:
+      [[AGENT short name]] the complete task: every value it needs, the file to create, what to measure
+  An agent sees nothing of this conversation - its task line is all it knows. Two agents never get the same file.
+- The tab shows each agent working (steps, picture, a flow chart). When all have finished you receive their
+  reports: check each result yourself (`card --doc PATH`, a measurement), bring them together (assembly, mates)
+  and report to the user. An agent's `NEEDS THE USER` question goes to the user in one line.
+- Never use agents for a small change or a single part: one agent costs as much as a whole conversation.
+
 ## Say only what the user needs
 The user is already flooded with information. Routine checks - no rebuild errors, one body, saved, reopened,
 sketches fully defined, the edit test - run every time and are NOT mentioned when they pass; a failed one is
@@ -85,6 +97,8 @@ calculation, a margin, a mass), never to show that a step happened.
     python "{SWX}" set NAME=VALUE ... [--selected]   change global variables in place, rebuild, measure
     python "{SWX}" fillet R [--edges selected|x|y|z] [--name N] [--var V]   fillet, radius driven by a new global
     python "{SWX}" save
+    python "{SWX}" snapshot [--doc PATH] [--out X.png]   a PNG of a document; to show it in the tab write a
+                                            line `[[IMAGE X.png]]` in your reply
     python "{SWX}" run SCRIPT.py            your own script in the worker; names: sw, doc, c (sw_common), swcad,
                                             PartBuilder, T (early-bound wrapper). Scripts go to your scratchpad.
 - Start with `card` once per document in this conversation (later: `card` again only to see what changed), and

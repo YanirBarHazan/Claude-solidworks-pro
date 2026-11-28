@@ -158,6 +158,28 @@
   #top { position: relative; }
   #top .title .t2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
 
+  /* background agents: a flow chart and one card per agent, under the top bar */
+  #agbar { display: none; background: #0b1016; border-bottom: 1px solid #1a2330; padding: 4px 8px 6px 8px;
+           max-height: 230px; overflow-y: auto; }
+  #flow { text-align: center; }
+  .ag { padding: 3px 6px; margin: 2px 0; border: 1px solid #1f2a38; border-radius: 6px; background: #10161e;
+        cursor: pointer; overflow: hidden; }
+  .ag:hover { border-color: #2c3b4f; }
+  .ag .an { font-size: 12px; font-weight: 600; color: #eef3f8; }
+  .ag .ast { font-size: 10px; color: #9fb0c3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ag.failed .ast { color: #fecaca; }
+  .dot2 { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin: 0 0 1px 6px; }
+  .pulse { animation: blink 1.2s infinite; }
+  .ath { float: left; width: 42px; height: 32px; object-fit: cover; border-radius: 4px; margin-right: 6px;
+         border: 1px solid #233041; background: #0d1117; }
+  .adet { margin: -2px 4px 6px 4px; padding: 4px 8px; border-right: 2px solid #233041; font-size: 11px; }
+  .adet .atx { color: #b9c7d6; margin-top: 3px; }
+  .shot { display: block; max-width: 100%; margin-top: 6px; border-radius: 6px; border: 1px solid #233041;
+          background: #0d1117; }
+  body.ltr .dot2 { margin: 0 6px 1px 0; }
+  body.ltr .ath { float: right; margin-right: 0; margin-left: 6px; }
+  body.ltr .adet { border-right: 0; border-left: 2px solid #233041; }
+
   /* language flags (top bar): the active one bright, the other dimmed */
   .flag { background: transparent; border: 1px solid transparent; border-radius: 3px; padding: 2px; margin: 0 1px;
           cursor: pointer; opacity: .4; line-height: 0; }
@@ -270,9 +292,11 @@
     <div id="m_folder" onclick="mact('folder')">תיקיית שמירה</div>
     <div id="m_file" onclick="mact('file')">צרף קובץ</div>
     <div id="m_new" onclick="mact('new')">שיחה חדשה</div>
+    <div id="m_agents" onclick="mact('agents_max')">סוכנים במקביל: 3</div>
     <div class="mdir"><span id="mdirk">שומר ב:</span> <span id="dir" dir="ltr">...</span></div>
   </div>
 </div>
+<div id="agbar"><div id="flow"></div><div id="agents"></div></div>
 <div id="chat"></div>
 <div id="busy"><span class="pill"><span id="wk">עובד</span><span class="dot">.</span><span class="dot d2">.</span><span class="dot d3">.</span></span>
   <div id="scan"><div></div></div>

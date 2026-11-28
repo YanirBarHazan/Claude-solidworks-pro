@@ -1,19 +1,10 @@
 """Print the exact signatures of SolidWorks API methods from this machine's type library (early binding),
 so a new recipe is written against the real call, not a remembered one. Read-only: opens no document.
 
-    python probe_api.py IFeatureManager InsertSheetMetalBaseFlange2 InsertSheetMetalEdgeFlange2 ...
-    python probe_api.py --sheetmetal      the calls the sheet-metal build needs (base flange, edge flange,
-                                          sketched bend, flat pattern)
+    python probe_api.py IFeatureManager FeatureExtrusion3 FeatureCut4 ...
 """
 import inspect
 import sys
-
-SHEETMETAL = {"IFeatureManager": ["InsertSheetMetalBaseFlange2", "InsertSheetMetalEdgeFlange2",
-                                  "InsertSheetMetalSketchedBend", "InsertSheetMetal3dBend", "InsertFlattenPart",
-                                  "InsertSheetMetalBreakCorner"],
-              "IPartDoc": ["SetBendState", "GetBendState"],
-              "IModelDoc2": ["InsertBends2"]}
-
 
 def signatures(iface, names):
     import sw_common as c
@@ -26,7 +17,10 @@ def signatures(iface, names):
 
 
 if __name__ == "__main__":
-    want = SHEETMETAL if "--sheetmetal" in sys.argv else {sys.argv[1]: sys.argv[2:]}
+    if len(sys.argv) < 3:
+        print(__doc__)
+        sys.exit(2)
+    want = {sys.argv[1]: sys.argv[2:]}
     for iface, names in want.items():
         for n, sig in signatures(iface, names).items():
             print(f"{iface}.{n}{sig}")

@@ -81,20 +81,13 @@ def test_mcp_server_has_one_tool_per_command():
     tools = {t.name for t in asyncio.run(server.server.list_tools())}
     assert set(server.TOOL_FOR) == set(contract.COMMANDS)
     assert set(server.TOOL_FOR.values()) <= tools
-    assert {"read_drawing", "engineering_guide"} <= tools
+    assert "engineering_guide" in tools
 
 
-def test_mcp_stdio_round_trip(tmp_path):
-    """Start the server as a client would (stdio), list its tools and read a drawing through it."""
-    ezdxf = pytest.importorskip("ezdxf")
+def test_mcp_stdio_round_trip():
+    """Start the server as a client would (stdio), list its tools and call one."""
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
-    doc = ezdxf.new()
-    doc.header["$INSUNITS"] = 4
-    doc.modelspace().add_lwpolyline([(0, 0), (40, 0), (40, 20), (0, 20)], close=True)
-    doc.modelspace().add_text("THK 2", dxfattribs={"insert": (0, -5)})
-    f = tmp_path / "plate.dxf"
-    doc.saveas(f)
 
     async def go():
         params = StdioServerParameters(command=sys.executable, args=[os.path.join(SKILL, "mcp", "server.py")])
@@ -102,7 +95,8 @@ def test_mcp_stdio_round_trip(tmp_path):
             async with ClientSession(r, w) as s:
                 await s.initialize()
                 names = {t.name for t in (await s.list_tools()).tools}
-                res = await s.call_tool("read_drawing", {"path": str(f)})
+                res = await s.call_tool("engineering_guide", {"section": "index"})
                 return names, res.content[0].text
     names, text = asyncio.run(asyncio.wait_for(go(), 60))
-    assert "model_card" in names and "VERDICT DIRECT" in text and "40.0 x 20.0" in text
+    assert "model_card" in names and "model_snapshot" in names
+    assert "SolidWorks through the API" in text and "Sections of engineering_guide" in text

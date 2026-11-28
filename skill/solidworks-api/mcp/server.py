@@ -2,11 +2,11 @@
 The same warm worker the Claude tab uses, the same contract (contracts/worker_commands.json), and the skill's
 engineering method served as a tool so a model that never saw this skill still works the same way.
 
-    pip install mcp ezdxf            (Python 3.10+; pywin32 is already there from the installer)
+    pip install mcp                  (Python 3.10+; pywin32 is already there from the installer)
     python server.py                 stdio transport - an MCP client starts it (README: "Other AI clients")
 
-Tools: one per worker command (tests/test_contracts.py checks they match the contract), plus read_drawing
-(DXF -> analysis and sheet-metal plan, no SolidWorks needed) and engineering_guide (the method and references).
+Tools: one per worker command (tests/test_contracts.py checks they match the contract), plus engineering_guide
+(the method and references).
 """
 import json
 import os
@@ -27,7 +27,8 @@ from mcp.types import ToolAnnotations  # noqa: E402
 
 # the tool that serves each contract command (one each - checked by tests/test_contracts.py)
 TOOL_FOR = {"ping": "solidworks_status", "card": "model_card", "info": "model_info", "set": "set_globals",
-            "fillet": "add_fillet", "save": "save_document", "run": "run_script"}
+            "fillet": "add_fillet", "save": "save_document", "run": "run_script",
+            "snapshot": "model_snapshot"}
 
 INSTRUCTIONS = """You drive the user's running SolidWorks as a senior mechanical engineer would.
 Before any design work call engineering_guide("index") once and follow it. The rules that matter most:
@@ -70,19 +71,20 @@ def solidworks_status() -> str:
 
 @server.tool(name="model_card", annotations=READ, description=contract.COMMANDS["card"]["summary"]
              + " Read it first for every document, and again to see what changed.")
-def model_card(full: bool = False) -> str:
-    return _call("card", ["--full"] if full else [])
+def model_card(full: bool = False, doc: str | None = None) -> str:
+    return _call("card", (["--full"] if full else []) + (["--doc", doc] if doc else []))
 
 
 @server.tool(name="model_info", annotations=READ, description=contract.COMMANDS["info"]["summary"])
-def model_info(full: bool = False) -> str:
-    return _call("info", ["--full"] if full else [])
+def model_info(full: bool = False, doc: str | None = None) -> str:
+    return _call("info", (["--full"] if full else []) + (["--doc", doc] if doc else []))
 
 
 @server.tool(name="set_globals", annotations=CHANGE, description=contract.COMMANDS["set"]["summary"]
              + " Example: {\"WALL\": 3, \"HOLE_D\": \"6.6\"}. selected=true: in the selected component's part.")
-def set_globals(assignments: dict[str, float | str], selected: bool = False) -> str:
-    args = [f"{k}={v}" for k, v in assignments.items()] + (["--selected"] if selected else [])
+def set_globals(assignments: dict[str, float | str], selected: bool = False, doc: str | None = None) -> str:
+    args = [f"{k}={v}" for k, v in assignments.items()] + (["--selected"] if selected else []) \
+        + (["--doc", doc] if doc else [])
     return _call("set", args)
 
 
@@ -98,8 +100,15 @@ def add_fillet(radius_mm: float, edges: Literal["selected", "x", "y", "z"] = "se
 
 
 @server.tool(name="save_document", annotations=CHANGE, description=contract.COMMANDS["save"]["summary"])
-def save_document() -> str:
-    return _call("save", [])
+def save_document(doc: str | None = None) -> str:
+    return _call("save", ["--doc", doc] if doc else [])
+
+
+@server.tool(name="model_snapshot", annotations=READ, description=contract.COMMANDS["snapshot"]["summary"])
+def model_snapshot(doc: str | None = None, out: str | None = None,
+                   view: Literal["iso", "front", "top", "right"] = "iso") -> str:
+    args = (["--doc", doc] if doc else []) + (["--out", out] if out else []) + ["--view", view]
+    return _call("snapshot", args)
 
 
 @server.tool(name="run_script", annotations=ToolAnnotations(readOnlyHint=False, destructiveHint=True,
@@ -117,20 +126,6 @@ def run_script(code: str, label: str = "script") -> str:
     return _call("run", [path])
 
 
-@server.tool(name="read_drawing", annotations=READ,
-             description="Read a 2D drawing (.dxf, or .dwg with the ODA File Converter installed): views, closed "
-                         "outlines, holes, dimensions as printed, title block, bend lines with their notes, and a "
-                         "sheet-metal verdict - DIRECT (the drawing alone fixes the part) or NOT_DIRECT with the "
-                         "reasons. Needs no SolidWorks. thickness_mm: only when the user gave it.")
-def read_drawing(path: str, thickness_mm: float | None = None, full_json: bool = False) -> str:
-    import drawing_read
-    a = drawing_read.analyze(path)
-    plan = drawing_read.plan_sheet_metal(a, thickness=thickness_mm)
-    if full_json:
-        return json.dumps({"analysis": a, "plan": plan}, ensure_ascii=False, default=str)
-    return drawing_read.summary(a, plan)
-
-
 GUIDE = {"index": "SKILL.md", "library": "SKILL.md"}
 GUIDE.update({os.path.splitext(n)[0]: os.path.join("references", n)
               for n in sorted(os.listdir(os.path.join(SKILL, "references"))) if n.endswith(".md")})
@@ -138,7 +133,7 @@ GUIDE.update({os.path.splitext(n)[0]: os.path.join("references", n)
 
 @server.tool(name="engineering_guide", annotations=READ,
              description="The engineering method of this skill and its references (pitfalls, verification, "
-                         "assemblies, drawings, manufacturing, sheet metal, drawing_to_part ...). "
+                         "assemblies, drawings, manufacturing, engineering ...). "
                          "section='index' first; it lists the others.")
 def engineering_guide(section: str = "index") -> str:
     rel = GUIDE.get(section)

@@ -146,9 +146,20 @@ def default_template(sw, kind):
     return tpl
 
 
+BACKGROUND = os.environ.get("SW_BACKGROUND") == "1"   # background agent: new documents stay hidden
+
+
 def new_doc(sw, kind):
     tpl = default_template(sw, kind)
-    doc = T(sw.NewDocument(tpl, 0, 0, 0), "IModelDoc2")
+    if BACKGROUND:       # a hidden document never becomes the one the user is looking at
+        dtype = {"part": 1, "assembly": 2, "drawing": 3}[kind]
+        sw.DocumentVisible(False, dtype)
+        try:
+            doc = T(sw.NewDocument(tpl, 0, 0, 0), "IModelDoc2")
+        finally:
+            sw.DocumentVisible(True, dtype)
+    else:
+        doc = T(sw.NewDocument(tpl, 0, 0, 0), "IModelDoc2")
     if doc is not None:
         CREATED.add(doc.GetTitle())
     if doc is None:

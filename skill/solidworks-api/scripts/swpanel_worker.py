@@ -2,7 +2,7 @@
 connection and the skill's modules loaded, so each command costs milliseconds instead of ~2 s of start-up.
 Started by swpanel_taskpane.py; commands come from swx.py over 127.0.0.1 (token in the panel folder).
 
-Commands: contracts/worker_commands.json (ping, card, info, set, fillet, save, run). The dispatch below accepts
+Commands: contracts/worker_commands.json (ping, card, info, set, fillet, save, snapshot, run). The dispatch below accepts
 only those; tests/test_contracts.py keeps this file, swx.py, the MCP server and the tab's prompt in step with it.
 """
 import contextlib
@@ -45,6 +45,30 @@ def r3(v, k=MM):
 class Worker:
     def __init__(self):
         self.sw = c.connect()
+
+    def target(self, args):
+        """--doc PATH: that document (opened hidden when it is not open, never made active); else the active one.
+        -> (IModelDoc2, args without --doc PATH)."""
+        args = list(args or [])
+        if "--doc" not in args:
+            return self.active(), args
+        i = args.index("--doc")
+        path = os.path.abspath(args[i + 1])
+        rest = args[:i] + args[i + 2:]
+        d = self.sw.GetOpenDocumentByName(path)
+        if d is None:
+            dtype = {".sldprt": 1, ".sldasm": 2, ".slddrw": 3}.get(os.path.splitext(path)[1].lower())
+            if dtype is None:
+                raise ValueError(f"--doc: not a SolidWorks file: {path}")
+            self.sw.DocumentVisible(False, dtype)
+            try:
+                r = self.sw.OpenDoc6(path, dtype, 1, "", 0, 0)        # swOpenDocOptions_Silent
+            finally:
+                self.sw.DocumentVisible(True, dtype)
+            d = r[0] if isinstance(r, tuple) else r
+            if d is None:
+                raise RuntimeError(f"--doc: cannot open {path}: {r[1:] if isinstance(r, tuple) else r}")
+        return T(d, "IModelDoc2"), rest
 
     def active(self):
         d = self.sw.ActiveDoc
@@ -194,7 +218,7 @@ class Worker:
     def info(self, args):
         """info [--full]: document + selection with geometry + size; --full adds equations and the feature list
         (the model itself is summarised by `card`)."""
-        doc = self.active()
+        doc, args = self.target(args)
         r = {"doc": doc.GetTitle(), "path": doc.GetPathName(), "kind": DOC_TYPES.get(doc.GetType()),
              "unsaved_changes": bool(doc.GetSaveFlag()),
              "config": doc.ConfigurationManager.ActiveConfiguration.Name,
@@ -288,7 +312,7 @@ class Worker:
     def card(self, args):
         """card [--full]: compact model summary; after the first time also what changed since the last card."""
         import hashlib
-        doc = self.active()
+        doc, args = self.target(args)
         path = doc.GetPathName() or doc.GetTitle()
         cdir = os.path.join(os.path.dirname(PANEL), "cards")
         os.makedirs(cdir, exist_ok=True)
@@ -351,7 +375,7 @@ class Worker:
         return bad
 
     def set(self, args):
-        top = self.active()
+        top, args = self.target(args)
         target = top
         if "--selected" in args:
             args = [a for a in args if a != "--selected"]
@@ -460,15 +484,41 @@ class Worker:
                 "rebuild_errors": self.errors(doc), "size_before": before, "size_after": self.size(doc),
                 "saved": False}
 
-    def save(self, _args):
-        doc = self.active()
+    def save(self, args):
+        doc, _ = self.target(args)
         if not doc.GetPathName():
             raise RuntimeError("document was never saved: use a script with save_as into the save folder")
         r = doc.Save3(1, 0, 0)      # swSaveAsOptions_Silent
         ok = r[0] if isinstance(r, tuple) else r
         return {"doc": doc.GetTitle(), "saved": bool(ok), "path": doc.GetPathName(), "result": str(r)}
 
+    def snapshot(self, args):
+        """snapshot [--doc PATH] [--out PNG] [--view iso|front|top|right]: a PNG of the document. SolidWorks saves
+        pictures of the active document only, so the document is shown for a moment and the user's comes back."""
+        doc, rest = self.target(args)
+        opt = dict(zip(rest[0::2], rest[1::2]))
+        src = doc.GetPathName() or os.path.join(PANEL, "scratch", doc.GetTitle())
+        out = os.path.abspath(opt.get("--out") or os.path.splitext(src)[0] + ".png")
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        view = {"iso": "*Isometric", "front": "*Front", "top": "*Top", "right": "*Right"}[opt.get("--view", "iso")]
+        before = self.sw.ActiveDoc
+        before_title = T(before, "IModelDoc2").GetTitle() if before is not None else None
+        try:
+            self.sw.ActivateDoc3(doc.GetTitle(), False, 0, 0)
+            doc.ShowNamedView2(view, -1)
+            doc.ViewZoomtofit2()
+            r = doc.Extension.SaveAs(out, 0, 1, None, 0, 0)
+            ok = r[0] if isinstance(r, tuple) else r
+            if not ok or not os.path.exists(out):
+                raise RuntimeError(f"PNG not written: {r}")
+        finally:
+            if before_title and before_title != doc.GetTitle():
+                self.sw.ActivateDoc3(before_title, False, 0, 0)
+        return {"doc": doc.GetTitle(), "png": out}
+
     def run(self, args):
+        background = "--background" in args
+        args = [a for a in args if a != "--background"]
         path = args[0]
         ns = {"__name__": "__main__", "__file__": path, "sw": self.sw, "c": c, "swcad": swcad,
               "PartBuilder": swcad.PartBuilder, "T": T}
@@ -478,11 +528,15 @@ class Worker:
             ns["doc"] = None
         with open(path, encoding="utf-8") as f:
             code = compile(f.read(), path, "exec")
+        old_bg = c.BACKGROUND
+        c.BACKGROUND = background
         try:
             exec(code, ns)
         except SystemExit as e:
             if e.code not in (None, 0):
                 raise RuntimeError(f"script exit {e.code}")
+        finally:
+            c.BACKGROUND = old_bg
         return None
 
 
