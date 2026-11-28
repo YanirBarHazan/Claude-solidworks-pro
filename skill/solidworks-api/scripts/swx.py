@@ -21,6 +21,9 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import contract  # noqa: E402
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import contract  # noqa: E402
+
 PANEL = os.path.join(os.path.expanduser("~"), ".solidworks-api", "swpanel")
 BUSY_WAIT = 90          # seconds a busy worker may keep a caller waiting before it counts as not running
 
